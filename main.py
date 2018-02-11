@@ -93,7 +93,7 @@ if examine or select or train or test:
 
 if serve: 
    
-    data_object_serve = dw.internet_case(
+    data_object_serve = dw.data_wrangler(
             features = features + ['targets'], 
             bunch_start = 1, 
             bunch_size = bunch_size, 
