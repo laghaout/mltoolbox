@@ -6,98 +6,34 @@ Created on Fri Mar  2 11:34:34 2018
 @author: Amine Laghaout
 """
 
-def pipeline(classifier_object, examine = False, select = False, train = False, 
-             test = False, serve = False, model_summary = False, 
-             params = {'marker': 'o'}):
-    
-    """
-    Parameters
-    ----------
-    
-    classifier_object : classifier
-        Instance of a classifier object ``classifiers.classifier()``
-    examine, select, train, test, serve : data_wrangler
-        Instances of a data wrangler object ``data_wranglers.data_wrangler()``
-        used for data examination, model selection, training, testing, and 
-        serving
-    params : dict
-        Miscellaneous parameters
-    
-    Returns
-    -------
-    
-    return_vars : dict
-        Dictionary of evaluations
-    """
-    
-    return_vars = dict()
-    
-    from collections import namedtuple
-    params = namedtuple('params', params.keys())(**params)    
-
-    if model_summary:
-
-        print('\n******************** MODEL SUMMARY:')
-        classifier_object.model.summary()
-    
-    if examine is not False:
-        
-        print('\n******************** EXAMINING:')
-        examine.examine() 
-
-    if select is not False:
-        
-        print('\n******************** SELECTING:')
-        classifier_object.select(select)
-    
-    if train is not False:
-        
-        print('\n******************** TRAINING:')
-        classifier_object.train(train)
-        classifier_object.train_report(marker = params.marker)
-        return_vars['train'] = {'prediction': classifier_object.test(train)}
-        
-    if test is not False: 
-        
-        print('\n******************** TESTING:')        
-        return_vars['test'] = {'prediction': classifier_object.test(test)}
-
-    if serve is not False: 
-        
-        print('\n******************** SERVING:')
-        prediction_serve = classifier_object.test(serve)
-        return_vars['serve'] = {'prediction': prediction_serve}
-        
-    return return_vars
-
 class classifier:
     
-    def __init__(self, params = None):
+    def __init__(self, **kwargs):
         
         """
-        This is the generic class for classifiers. The main attributes are 
-        
-        - ``self.model``: the model (e.g., in scikit-learn, Keras, TensorFlow, 
-          etc.)
-        - ``self.params``: a namedtuple of model parameters
-        
         Parameters
         ----------
+
+        - ``self.params``: a namedtuple of model parameters
+
+        Returns
+        -------
         
-        params: dict
-            Dictionary of the parameters for the model. This includes not only 
-            hyperparameters but also other attributes of the model's 
-            architechture.
-            
-        Conventions
-        -----------
+        The following are naming conventions of the main attributes
         
         - ``self.train_curve``: For neural networks, this records the evolution
           of the driving metric over the epochs.
+        - ``self.model``: The model (e.g., in scikit-learn, Keras, TensorFlow, 
+          etc.)
+        - ``self.scores``: The evaluation of the metrics
         """
+
+        # Set the ``kwargs`` as attributes.
+        [self.__setattr__(k, kwargs[k]) for k in kwargs]
         
+        # Set the parameters as namedtuples.
         from collections import namedtuple
-        self.params = namedtuple('params', params.keys())(**params)
+        self.params = namedtuple('params', self.params.keys())(**self.params)
         
         self.build()
 
@@ -124,10 +60,11 @@ class classifier:
                 data_object.data.output, 
                 epochs = self.params.epochs, 
                 batch_size = self.params.batch_size,
-                validation_split = self.params.validation_split,
-                verbose = self.params.verbose)
+                validation_split = self.validation_split,
+                verbose = self.verbose)
+            
     
-    def train_report(self, marker = 'o'):    
+    def train_report(self, marker = None):
         
         """
         This function provides a report on the trainig process.
@@ -137,6 +74,9 @@ class classifier:
         
         epochs = range(1, self.params.epochs + 1)
         
+        if self.params.epochs < 20 and marker is None:
+            marker = 'o'
+            
         plot2D(epochs, 
                (self.train_curve.history['acc'], 
                 self.train_curve.history['val_acc']),
@@ -157,8 +97,8 @@ class classifier:
         
         self.scores = self.model.evaluate(data_object.data.input, 
                                           data_object.data.output,
-                                          verbose = self.params.verbose)
-        print("Accuracy: %.2f%%" % (self.scores[1]*100)) 
+                                          verbose = self.verbose)
+        print('Accuracy: %.2f%%' % (self.scores[1]*100)) 
         
         return self.serve(data_object)
     
@@ -169,7 +109,43 @@ class classifier:
         """
         
         return self.model.predict(data_object.data.input)
-   
+
+class dummy(classifier):
+
+    def build(self):
+        
+        self.model = None
+        
+        print('Building the dummy classifier...')
+        
+    def train(self, data_object):
+        
+        self.train_curve = None
+        
+        print('Training the dummy classifier...')
+        
+        pass
+
+    def test(self, data_object):
+        
+        self.scores = None
+        
+        print('Testing the dummy classifier...')
+        
+        pass
+
+    def serve(self, data_object): 
+        
+        print('Serving the dummy classifier...')
+        
+        pass
+
+    def train_report(self, marker = None): 
+        
+        print('Reporting on the training of the dummy classifier...')
+        
+        pass
+
 class MLP(classifier):
     
     """
@@ -192,14 +168,14 @@ class MLP(classifier):
                 
                 self.model.add(Dense(int(layer.num_nodes), 
                                      activation = layer.activation, 
-                                     input_dim = self.params.input_dim))
+                                     input_dim = self.input_dim))
                 
                 self.model.add(Dropout(layer.dropout))
             
             # Output layer
             elif index == len(self.params.architecture) - 1:
 
-                self.model.add(Dense(self.params.output_dim, 
+                self.model.add(Dense(self.output_dim, 
                                      activation = layer.activation))
                                 
             # Hidden layers
@@ -215,18 +191,21 @@ class MLP(classifier):
             optimizer = SGD(**self.params.optimizer)
         except:
             from keras.optimizers import Adam
-            optimizer = eval(self.params.optimizer)
+            try:
+                optimizer = eval(self.params.optimizer)
+            except: 
+                optimizer = self.params.optimizer
         
         self.model.compile(loss = self.params.loss_function, 
                            optimizer = optimizer, 
-                           metrics = self.params.metrics)
+                           metrics = self.metrics)
         
 class RNN(classifier):
 
     """
-    Recurrent neural network
+    Recurrent neural network with embedding
     """
-
+        
     def build(self):
 
         # LSTM with dropout for sequence classification in the IMDB dataset
@@ -237,9 +216,9 @@ class RNN(classifier):
         self.model = Sequential()
         
         # Input (embedding) layer
-        self.model.add(Embedding(self.params.input_dim, 
+        self.model.add(Embedding(self.input_dim, 
                                  self.params.embed_dim, 
-                                 input_length = self.params.max_seq_len))
+                                 input_length = self.max_seq_len))
         
         # Recurrent layer
         self.model.add(LSTM(self.params.num_nodes, 
@@ -247,9 +226,97 @@ class RNN(classifier):
                             recurrent_dropout = self.params.recurrent_dropout))
         
         # Output layer
-        self.model.add(Dense(self.params.output_dim, 
+        self.model.add(Dense(self.output_dim, 
                              activation = self.params.activation))
         
         self.model.compile(loss = self.params.loss_function, 
                            optimizer = self.params.optimizer, 
-                           metrics = self.params.metrics)
+                           metrics = self.metrics)
+
+class RNN2(classifier):
+
+    """
+    Recurrent neural network without embedding
+    https://machinelearningmastery.com/reshape-input-data-long-short-term-memory-networks-keras/
+    """
+        
+    def build(self):
+
+        # LSTM with dropout for sequence classification in the IMDB dataset
+        from keras.models import Sequential
+        from keras.layers import Dense, LSTM
+        
+        self.model = Sequential()
+        
+        # Recurrent layer
+        self.model.add(LSTM(self.params.num_nodes, 
+                            input_shape = (self.max_seq_len, self.input_dim),
+                            dropout = self.params.dropout, 
+                            recurrent_dropout = self.params.recurrent_dropout))
+        
+        # Output layer
+        self.model.add(Dense(self.output_dim, 
+                             activation = self.params.activation))
+        
+        self.model.compile(loss = self.params.loss_function, 
+                           optimizer = self.params.optimizer, 
+                           metrics = self.metrics)
+
+class sklearn(classifier):
+    
+    """
+    Support vector classifier
+    """
+
+    def build(self):    
+    
+        if self.algo == 'SVC':
+        
+            from sklearn.svm import SVC
+            self.model = SVC(**self.params)
+            
+        elif self.algo == 'RandomForestRegressor':
+            
+            from sklearn.ensemble import RandomForestRegressor
+            self.model = RandomForestRegressor(**dict(self.params._asdict()))            
+        
+    def train(self, data_object):
+        
+        self.model.fit(data_object.data.input, data_object.data.output)
+
+        from sklearn.feature_selection import SelectKBest, f_regression
+        from numpy import log10
+        
+        predictors = data_object.features
+        
+        kBest = len(predictors)
+        
+        selector = SelectKBest(f_regression, k = kBest)   
+        selector.fit(data_object.data.input, 
+                     data_object.data.output)   
+        scores = -log10(selector.pvalues_)
+        
+        self.feature_relevance = {predictors[i]: p for i, p in enumerate(scores)}
+        
+    def train_report(self, marker = None):
+
+        pass
+    
+    def test(self, data_object):
+
+        self.scores = self.model.score(data_object.data.input, 
+                                       data_object.data.output)
+        prediction = self.serve(data_object)
+        prediction = [int(round(x)) for x in prediction.copy()]
+        
+        print('Accuracy', sum(prediction == data_object.data.output)/len(prediction))
+        print('Score:', self.scores) 
+        
+        return prediction
+    
+    def serve(self, data_object):
+        
+        try:
+            return self.model.predict(data_object.data.input)
+        except:
+            return self.model.predict(data_object)
