@@ -3,7 +3,7 @@
 """
 Created on Mon Apr 17 11:55:25 2017
 
-@author: ala
+@author: Amine Laghaout
 """
 
 def dump_load_pickled(path, obj = None):
