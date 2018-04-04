@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar  2 10:36:38 2018
+Created on Mon Apr 17 10:36:38 2017
 
 @author: Amine Laghaout
 """
@@ -9,12 +9,7 @@ class data_wrangler:
     
     def __init__(self, data = None, **params):
         
-        """
-        This class wrangles the data into a format which can be readily used
-        by machine learning algorithms. In particular it creates a namedtuple
-        ``data`` consisting of the input data ``data.input`` (i.e, the 
-        features) and the output data ``data.output`` (i.e., the targets).
-        
+        """        
         Parameters
         ----------
         
@@ -23,38 +18,54 @@ class data_wrangler:
             first element is the input and the second the output. If a string, 
             it represents the path to the data file.
         **params : **kwargs
-            Miscellaneous parameters of the data object. These can be the 
-            number or rows to load from the data file, the starting row and 
-            size of the buffer, etc.
-            
-        Naming conventions for the parameters ``**params``:
+            Miscellaneous parameters of the data object. Some of these 
+            parameters can alternatively be generated on the fly based, for 
+            example, on the dimensions of the data.
         
-        nrows : int
-            Number of rows to load
-        read_csv : dict
-            Dictionary of arguments passed to ``pandas.read_csv`` in the case
-            when the data is stored in a CSV file
-        feature_names : str, list of str
-            Names of the features
-        target_names : str, list of str
-            Names of the targets
-        index : str
-            Name of the index, i.e., the field that determines the unique rows
-
         Returns
         -------
         
-        The following are naming conventions for the various attributes.
+        All of the parameters ``**params`` are turned into attributes of the 
+        data object. The mandatory ones are
         
-        - ``self.data``: Algorithm-readable data. See ``self.wrangle()``.
-        - ``self.data_raw``: Human-readable data. See ``self.wrangle()``.
-        - ``self.data_examined``: Extension of the human-readable data after 
-          feature engineering. See ``self.examine()``.
-        - ``self.feature_profiles``: Statistical profiles of the various 
-          features. See ``self.examine()``.
+        self.input_names : list
+            List of input names
+        self.output_names : list
+            List of output names
+        self.data_raw : pandas.DataFrame, dict, utils.Bunch
+            Human readable data. The input is 
+            ``self.data_raw[self.input_names]`` and the output is
+            ``self.data_raw[self.output_names]``.
+        self.data.input : numpy.array
+            Machine-readable input data
+        self.data.output : numpy.array
+            Machine readable output data
+        self.class_names : list
+            List of class names
+        self.input_dim : int
+            Dimensionality of the input. Usually ``self.data.input.shape[1]``.
+        self.output_dim : int
+            Dimensionality of the output. Usually ``self.data.input.shape[1]``.
+        self.nrows : int
+            Number of training examples. Usually ``len(self.data_raw)``.
+            
+        Other, attributes are optional. For example:
+        
+        self.index : str, list
+            Index column for the data
+        self.start_row : int
+            Starting row for the data
+        self.shuffle : bool, float
+            Shuffle the rows of the data?
+        
+        Returns
+        -------
+        
+        self.label_binarize : sklearn.preprocessing.LabelBinarizer
+            Mapping between the classes and their one-hot encoding
         """
         
-        # Prepare the attribute that will contain the data
+        # Attribute that shall contain the machine-readable data
         from collections import namedtuple
         self.data = namedtuple('data', ['input', 'output'])
        
@@ -72,21 +83,21 @@ class data_wrangler:
         self.data : numpy.array
             Numerical data ready to be ingested by the classifier. This is a
             namedtuple that references the input data as ``self.data.input`` 
-            and the output data (in the case of supervised learning) as
+            and, in the case of supervised learning, the output data () as
             ``self.data.output``.
-        self.data_raw : utils.Bunch, pandas.DataFrame, etc
-            Raw (but clean) data in a human readable form. I.e., unlike 
+        self.data_raw : pandas.DataFrame, dict, utils.Bunch
+            Raw (but cleaned) data in a human-readable form. I.e., unlike 
             ``self.data``, this would not be one hot-encoded.
         """
         
-        # If ``data`` is a tuple, ensure that it is made to exactly two 
+        # If ``data`` is a tuple, ensure that it is made exactly of two 
         # elements, where the first shall be the input and the second the 
         # output.
         if type(data) is tuple:
             
             assert_msg = 'The data has to be a tuple (input, output).'
             assert len(data) == 2, assert_msg
-            self.data.input, self.data.output = data
+            (self.data.input, self.data.output) = data
         
         # If ``data`` is a string, then it represent the path name of the data
         # file.
@@ -104,38 +115,105 @@ class data_wrangler:
             # Set the index column                
             try:
                 self.data_raw.set_index(self.index, inplace = True)
-                
             except: 
                 pass
     
     def examine(self):
         
-        """
-        This function examines the data by performing a statistical analysis on
-        the various fields. New features elicited by this examination can be 
-        engineered.
-        
+        """       
         Returns
         -------
         
         self.data_examined : pandas.DataFrame
             This is an extension of ``self.data_raw`` which includes new 
             features.
-        self.feature_profiles : dict
+        self.input_profiles : dict
             Dictionary of statistical profiles for the various features
         """
+
+        try:
+            
+            from sklearn.feature_selection import SelectKBest, f_classif
+            from numpy import log10
+            
+            kBest = len(self.input_names)
+            
+            selector = SelectKBest(f_classif, k = kBest)   
+            selector.fit(self.data.input, 
+                         self.data_raw[self.output_names])
+            scores = -log10(selector.pvalues_)
+            
+            input_relevance = {self.input_names[i]: p for i, p in enumerate(scores)}
+    
+            ###
+    
+            from pandas import DataFrame
+            A = input_relevance
+            
+            B = DataFrame.from_dict(A, orient = 'index').sort_values(
+                    0, ascending = False)
+            
+            import matplotlib.pyplot as plt
+            
+            fontSize = 16
+            top_N = 10
+            predictors = B.index.tolist()[:top_N]
+            scores = B[0].values[:top_N]
+            
+            plt.title('Relevance of features')
+            plt.barh(range(len(predictors)), scores, align = 'center')
+            plt.xlabel('p-values', fontsize = fontSize)
+            plt.yticks(range(len(predictors)), predictors, 
+                       fontsize = fontSize)
+            plt.ylim([-.5,len(predictors)-.5])
+            plt.grid()
+            plt.show()        
+            
+            ###
         
-        pass
+        except:
+            
+            input_relevance = None        
+            
+        return {'input_relevance': input_relevance,
+                'input_profiles': None}
     
 class dummy(data_wrangler):
     
+    """
+    This class generates a dummy data object with random values and generic
+    categories.
+    """
+    
     def wrangle(self, data = None):
         
-        self.data_raw = None
-        self.data.input = None
-        self.data.output = None
+        from pandas import DataFrame
+        from numpy.random import rand, choice
         
         print('Wrangling the dummy data...')
+        
+        self.input_names = ['feature_'+str(i) for i in range(self.input_dim)]
+        self.output_names = 'target'
+        self.class_names = ['class_'+str(i) for i in range(self.output_dim)]
+        
+        # Human-readable data
+        
+        self.data_raw = DataFrame(
+                {**{input_name: rand(self.nrows) for input_name in self.input_names},
+                 **{'target': [self.class_names[x] for x in choice(len(self.class_names), self.nrows)]}})
+            
+        # Machine-readable data
+        
+        from utilities import binarize        
+        self.data.input = self.data_raw[self.input_names].values
+        (self.data.output, self.label_binarize) = binarize(
+                self.data_raw[self.output_names], self.class_names)         
+
+    def examine(self):
+        
+        print('Examining the dummy data...')
+        
+        return super().examine()
 
 class sklearn_dataset(data_wrangler):
     
@@ -146,27 +224,41 @@ class sklearn_dataset(data_wrangler):
     
     def wrangle(self, data = None):
         
+        from sklearn import datasets
         from pandas import DataFrame
-        from sklearn import datasets, preprocessing
-
-        # Raw
-        dataset = eval('datasets.load_'+data+'()')        
+        from utilities import binarize
+        
+        dataset = eval('datasets.load_'+data+'()')
+        
+        # Retrieve the feature names from the dataset if they're readily 
+        # available.
         try:
-            dataset.feature_names = dataset.feature_names
+            self.input_names = dataset.feature_names
+            
+        # If not, just label the features numerically.
         except:
-            dataset.feature_names = list(range(dataset.data.shape[1]))
-        self.data_raw = DataFrame({x: dataset.data[:, i] for i, x in enumerate(dataset.feature_names)})
-        self.data_raw['targets'] = dataset.target
-        self.data_raw['target_labels'] =self.data_raw['targets'].apply(lambda x: dataset.target_names[x])
+            self.input_names = list(range(dataset.data.shape[1]))
+        
+        self.class_names = dataset.target_names
+        (self.nrows, self.input_dim) = dataset.data.shape
+        self.output_dim = len(self.class_names)
+        self.output_names = data
+        
+        # Human-readable data
+        
+        self.data_raw = DataFrame(
+                {**{input_name: dataset.data[:, i] for i, input_name 
+                    in enumerate(self.input_names)},
+                 **{self.output_names: [dataset.target_names[x] for x in dataset.target]}})
+    
+        # Shuffle the rows of data        
         self.data_raw = self.data_raw.sample(frac = 1)
         
-        # Input
-        self.data.input = self.data_raw[dataset.feature_names].values
-        
-        # Output
-        label_binarize = preprocessing.LabelBinarizer()
-        label_binarize.fit(range(len(dataset.target_names)))
-        self.data.output = label_binarize.transform(self.data_raw['targets'])
+        # Machine-readable data
+
+        self.data.input = self.data_raw[self.input_names].values
+        (self.data.output, self.label_binarize) = binarize(
+                self.data_raw[self.output_names], self.class_names)
 
 class strings(data_wrangler):
     
@@ -181,7 +273,7 @@ class strings(data_wrangler):
         for i, char in enumerate(self.chars):
             chardict[char] = i + 1
         
-        self.data.input = self.data_raw[self.feature_names].map(lambda x: [chardict[y] for y in x])
+        self.data.input = self.data_raw[self.input_names].map(lambda x: [chardict[y] for y in x])
         self.data.input = sequence.pad_sequences(self.data.input)
         
         try:
@@ -193,13 +285,13 @@ class strings(data_wrangler):
         except:
             pass
         
-        self.data.output = array([[x] for x in self.data_raw[self.target_names]])  
-
-
+        self.data.output = array([[x] for x in self.data_raw[self.output_names]])      
 
 class random_walk(data_wrangler):
 
     """
+    This random walk is prepared specifically for recurrent neural networks.
+    
     Parameters
     ----------
 
@@ -219,49 +311,31 @@ class random_walk(data_wrangler):
     Returns
     -------
     
-    For any given walk, the output can be
-    
-    - the unique label of the orthant in which the walker ended up (for 
-      ``self.output_dim = 1``), or
-    - the one-hot encoding of the orthant in which the walker ended up (for
-      ``self.output_dim = self.input_dim``), or
-    - the position in which the walker ended up (for 
-      ``self.output_dim = self.input_dim``), 
-    - the distance from the origin at which the walker ended up (for
-      ``self.output_dim = 1``).
-    
-    TODO: 
-        So far, only the first scenario is implemented. Implement the three 
-        other ones.
+    TODO:
     """
-    
-#    def __init__(self, nrows = 10, input_dim = 2, output_dim = 1, 
-#                 min_seq_len = 2, max_seq_len = 20, max_step = 1, verbose = 1):
-#        
-#            super().__init__(
-#                    None, nrows = nrows, input_dim = input_dim, 
-#                    output_dim = output_dim, min_seq_len = min_seq_len, 
-#                    max_seq_len = max_seq_len, max_step = max_step, 
-#                    verbose = verbose)
     
     def wrangle(self, data = None):
 
         from pandas import DataFrame
         from numpy import append, zeros
-        from numpy.random import uniform, choice
+        from sklearn import preprocessing
+        from numpy.random import uniform, choice        
                 
-        self.data_raw = dict()
+        self.data_raw = {self.output_names: zeros(self.nrows)}
         self.data.input = zeros((self.nrows, 
                                  self.max_seq_len, 
                                  self.input_dim))
-        self.data.output = zeros((self.nrows, self.output_dim))
+        self.output_dim = 2**self.input_dim
+        self.class_names = range(self.output_dim)
+
 
         # Create variable-length sequences.
         assert 0 < self.min_seq_len < self.max_seq_len
         self.seq_len = choice(range(self.min_seq_len, self.max_seq_len + 1), self.nrows)
-        
-        from numpy import ones
-        self.seq_len = self.max_seq_len*ones(self.nrows, dtype = int)
+                
+        # Fixed-length
+        #from numpy import ones
+        #self.seq_len = self.max_seq_len*ones(self.nrows, dtype = int) 
 
         # For each walk...
         for row in range(self.nrows):
@@ -282,7 +356,17 @@ class random_walk(data_wrangler):
             # Output 
 
             orthant = [self.data_raw[row]['position_'+str(dim)].iloc[-1] > 0 for dim in range(self.input_dim)]
-            self.data.output[row] = sum([orthant[dim]*2**dim for dim in range(self.input_dim)])
+            self.data_raw[self.output_names][row] = sum([orthant[dim]*2**dim for dim in range(self.input_dim)])
+
+        self.label_binarize = preprocessing.LabelBinarizer()
+        self.label_binarize.fit(range(self.output_dim))
+        self.data.output = self.label_binarize.transform(self.data_raw[self.output_names])
+    
+    def examine(self):
+        
+        self.plot()        
+        
+        return super().examine()
     
     def plot(self, row = 0):
 
@@ -318,26 +402,35 @@ class keras_imdb(data_wrangler):
     def wrangle(self, data = None):
     
         from numpy import array
+        from pandas import DataFrame
         from numpy.random import seed
         from keras.datasets import imdb
+        from sklearn import preprocessing
         from keras.preprocessing import sequence
         
         # fix random seed for reproducibility
         seed(7)
         
+        self.class_names = range(2)
+        
         # load the dataset but only keep the top n words, zero the rest
         (X_train, y_train), _ = imdb.load_data(num_words = self.top_words)
-        
         X_train = X_train[self.start_row:self.start_row + self.nrows]
         y_train = y_train[self.start_row:self.start_row + self.nrows]
         
-        # truncate and pad input sequences
-        X_train = sequence.pad_sequences(X_train, 
-                                         maxlen = self.max_review_length)
-        
-        # Input
-        self.data.input = X_train
+        # Input: Truncate and pad input sequences
+        self.data.input = sequence.pad_sequences(
+                X_train, maxlen = self.max_review_length)
         
         # Output
         self.data.output = array([[y] for y in y_train])
         
+        self.data_raw = DataFrame(
+                {**{self.output_names: self.data.output[:, 0]},
+                 **{str(i): self.data.input[:, i] for i in range(self.max_review_length)}})
+        
+        
+            
+        self.label_binarize = preprocessing.LabelBinarizer()
+        self.label_binarize.fit(self.class_names)
+        self.data.output = self.label_binarize.transform(self.data.output)

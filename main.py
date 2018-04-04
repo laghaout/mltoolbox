@@ -1,40 +1,44 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar  2 11:36:24 2018
+Created on Mon Apr 17 11:36:24 2017
 
 @author: Amine Laghaout
 """
 
+import warnings
 import problems as pro
 
-##%% Dummy
-#problem = pro.dummy()
-#results = problem.pipeline(
+warnings.filterwarnings('ignore')
+verbose = 0
+
+#%%%%%%%%%%%%%%%%%%%% DUMMY 
+
+#problem_dummy = pro.dummy(verbose = verbose, input_dim = 20)
+#results_dummy = problem_dummy.pipeline(
 #        examine = True, train = True, test = True, serve = True)
-#
-##%% Domains
-problem = pro.domains(verbose = 1, 
-                      nrows_train = 1000, nrows_test = 1000, 
-                      algo = 'MLP')
-results = problem.pipeline(examine = True, train = True, test = True)
-#
-##%% Iris
-#problem = pro.iris(verbose = 0)
-#results = problem.pipeline(train = True, test = True)
-#
-##%% Digits
-#problem = pro.digits(verbose = 0)
-#results = problem.pipeline(train = True, test = True)
-#
-#%% Random walk
-#problem = pro.random_walk(input_dim = 1, nrows = 10000, max_seq_len = 100)
-#results = problem.pipeline(train = True, test = True)
-#
-##%% IMDB
-#problem = pro.imdb(verbose = 1)
-#results = problem.pipeline(train = True, test = True)
-#
-##%% Financials
-#problem = pro.financials(verbose = 0)
-#results = problem.pipeline(train = True, test = True)
+
+#%%%%%%%%%%%%%%%%%%%% IRIS 
+
+#problem_iris = pro.iris(verbose = verbose) 
+#results_iris = problem_iris.pipeline(
+#        examine = False, select = True, train = False, test = False, 
+#        params = {'marker': 'x', 'key_only': True})
+
+#%%%%%%%%%%%%%%%%%%%% DIGITS
+
+#problem_digits = pro.digits(verbose = verbose)
+#results_digits = problem_digits.pipeline(
+#        examine = True, train = True, test = True)
+
+#%%%%%%%%%%%%%%%%%%%% RANDOM WALK
+
+#problem_random_walk = pro.random_walk(
+#        verbose = verbose, input_dim = 2, nrows = 5000, max_seq_len = 200)
+#results_random_walk = problem_random_walk.pipeline(
+#        examine = True, train = True, test = True, serve = False)
+
+#%%%%%%%%%%%%%%%%%%%% IMDB
+
+#problem_imdb = pro.imdb(verbose = verbose)
+#results_imdb = problem_imdb.pipeline(examine = True, train = True, test = True)

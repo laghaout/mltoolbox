@@ -1,16 +1,81 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar  6 09:24:45 2018
+Created on Mon Apr 17 09:24:45 2017
 
 @author: Amine Laghaout
 """
 
 class visualizer:
     
-    def __init__(self):
+    def __init__(self, default, **params):
+        
+        # Default arguments        
+        [self.__setattr__(k, default[k]) for k in default]
+        
+        # Arguments specified explicitly. These overwrite the default 
+        # arguments.
+        [self.__setattr__(k, params[k]) for k in params]
+        
+        self.visualize()
+        
+    def visualize(self):
         
         pass
+
+class plot2Dbis(visualizer):
+    
+    def __init__(self, 
+                 default = {
+                         'linewidth': 2,
+                         }, 
+                 **kwargs):
+    
+        super().__init__(default, **kwargs)
+    
+    def visualize(self):
+        
+        import matplotlib.pyplot as plt
+        
+        plt.plot(self.x, self.y, linewidth = self.linewidth)
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=None):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+
+    import itertools
+    import numpy as np
+    import matplotlib.pyplot as plt    
+    
+    if cmap is None:
+        cmap = plt.cm.Blues
+    
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('Actual label')
+    plt.xlabel('Predicted label')
+    plt.show()
 
 def plot2D(x, y, xlabel = '', ylabel = '', title = '', fontsize = 16, 
            smooth = None, save_as = None, axis_range = None, grid = True, 
