@@ -1,44 +1,60 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr 17 11:36:24 2017
+Created on Thu Sep 13 11:48:58 2018
 
-@author: Amine Laghaout
+@author: ala
+
+TODO:
+- Update file dates
 """
 
-import warnings
-import problems as pro
+from problems import Digits
 
-warnings.filterwarnings('ignore')
-verbose = 0
+digits = Digits(nex=None, algo='MLP', encoder=True)
+digits.run(wrangle=True, select=False, train=False, test=False)
+digits.data.view()
 
-#%%%%%%%%%%%%%%%%%%%% DUMMY 
+hum_in = digits.data.raw.input
+hum_out = digits.data.raw.output
+mac_in = digits.data.input
+mac_out = digits.data.output
 
-#problem_dummy = pro.dummy(verbose = verbose, input_dim = 20)
-#results_dummy = problem_dummy.pipeline(
-#        examine = True, train = True, test = True, serve = True)
+#digits.wrangle()
+#
+#A = digits.data.output
+#
+#print(A[:10])
+#print(digits.data.raw.output[:10])
+#
+#cutoff = 1500
+##
+##digits.select(digits.data.input[:cutoff], digits.data.output[:cutoff])
+#digits.train(digits.data.input[:cutoff], digits.data.output[:cutoff])
+#prediction = digits.test(digits.data.input[cutoff:], digits.data.output[cutoff:])
 
-#%%%%%%%%%%%%%%%%%%%% IRIS 
+#digits.run(test=True)
 
-#problem_iris = pro.iris(verbose = verbose) 
-#results_iris = problem_iris.pipeline(
-#        examine = False, select = True, train = False, test = False, 
-#        params = {'marker': 'x', 'key_only': True})
-
-#%%%%%%%%%%%%%%%%%%%% DIGITS
-
-#problem_digits = pro.digits(verbose = verbose)
-#results_digits = problem_digits.pipeline(
-#        examine = True, train = True, test = True)
-
-#%%%%%%%%%%%%%%%%%%%% RANDOM WALK
-
-#problem_random_walk = pro.random_walk(
-#        verbose = verbose, input_dim = 2, nrows = 5000, max_seq_len = 200)
-#results_random_walk = problem_random_walk.pipeline(
-#        examine = True, train = True, test = True, serve = False)
-
-#%%%%%%%%%%%%%%%%%%%% IMDB
-
-#problem_imdb = pro.imdb(verbose = verbose)
-#results_imdb = problem_imdb.pipeline(examine = True, train = True, test = True)
+#from visualizers import Plot2D
+#
+#digits.pipeline.steps[0][1].model.history.history
+#
+#epochs = range(1, len(report['train_curve']['acc'])  + 1) # self.params.epochs
+#
+#try:
+#    Plot2D(x=epochs,
+#           y=(report['train_curve']['acc'],
+#               report['train_curve']['val_acc']),
+#           title='Model accuracy', xlabel='Epoch', ylabel='Accuracy',
+#           legend=['Train', 'Test'], marker=marker, show=show)
+#except BaseException:
+#    pass
+#
+#try:
+#    Plot2D(x=epochs,
+#           y=(report['train_curve']['loss'],
+#               report['train_curve']['val_loss']),
+#           title='Model loss', xlabel='Epoch', ylabel='Loss',
+#           legend=['Train', 'Test'], marker=marker, show=show)
+#except BaseException:
+#    pass

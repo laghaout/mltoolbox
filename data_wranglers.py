@@ -5,432 +5,517 @@ Created on Mon Apr 17 10:36:38 2017
 
 @author: Amine Laghaout
 """
-class data_wrangler:
-    
-    def __init__(self, data = None, **params):
-        
-        """        
-        Parameters
-        ----------
-        
-        data : None, tuple, str
-            If ``None``, the data is generated from on the fly. If a tuple, the 
-            first element is the input and the second the output. If a string, 
-            it represents the path to the data file.
-        **params : **kwargs
-            Miscellaneous parameters of the data object. Some of these 
-            parameters can alternatively be generated on the fly based, for 
-            example, on the dimensions of the data.
-        
-        Returns
-        -------
-        
-        All of the parameters ``**params`` are turned into attributes of the 
-        data object. The mandatory ones are
-        
-        self.input_names : list
-            List of input names
-        self.output_names : list
-            List of output names
-        self.data_raw : pandas.DataFrame, dict, utils.Bunch
-            Human readable data. The input is 
-            ``self.data_raw[self.input_names]`` and the output is
-            ``self.data_raw[self.output_names]``.
-        self.data.input : numpy.array
-            Machine-readable input data
-        self.data.output : numpy.array
-            Machine readable output data
-        self.class_names : list
-            List of class names
-        self.input_dim : int
-            Dimensionality of the input. Usually ``self.data.input.shape[1]``.
-        self.output_dim : int
-            Dimensionality of the output. Usually ``self.data.input.shape[1]``.
-        self.nrows : int
-            Number of training examples. Usually ``len(self.data_raw)``.
-            
-        Other, attributes are optional. For example:
-        
-        self.index : str, list
-            Index column for the data
-        self.start_row : int
-            Starting row for the data
-        self.shuffle : bool, float
-            Shuffle the rows of the data?
-        
-        Returns
-        -------
-        
-        self.label_binarize : sklearn.preprocessing.LabelBinarizer
-            Mapping between the classes and their one-hot encoding
-        """
-        
-        # Attribute that shall contain the machine-readable data
-        from collections import namedtuple
-        self.data = namedtuple('data', ['input', 'output'])
-       
-        # Record all the other parameters as attributes of the data object.
-        [self.__setattr__(k, params[k]) for k in params]
 
-        self.wrangle(data)
-    
-    def wrangle(self, data = None):
 
-        """
-        Returns
-        -------
-        
-        self.data : numpy.array
-            Numerical data ready to be ingested by the classifier. This is a
-            namedtuple that references the input data as ``self.data.input`` 
-            and, in the case of supervised learning, the output data () as
-            ``self.data.output``.
-        self.data_raw : pandas.DataFrame, dict, utils.Bunch
-            Raw (but cleaned) data in a human-readable form. I.e., unlike 
-            ``self.data``, this would not be one hot-encoded.
-        """
-        
-        # If ``data`` is a tuple, ensure that it is made exactly of two 
-        # elements, where the first shall be the input and the second the 
-        # output.
-        if type(data) is tuple:
-            
-            assert_msg = 'The data has to be a tuple (input, output).'
-            assert len(data) == 2, assert_msg
-            (self.data.input, self.data.output) = data
-        
-        # If ``data`` is a string, then it represent the path name of the data
-        # file.
-        elif type(data) is str:
-            
-            from pandas import read_csv
-            
-            # Read the CSV file according to the arguments passed as
-            # ``self.read_csv``, if any.
-            try:    
-                self.data_raw = read_csv(data, **self.read_csv)
-            except:
-                self.data_raw = read_csv(data)
-
-            # Set the index column                
-            try:
-                self.data_raw.set_index(self.index, inplace = True)
-            except: 
-                pass
-    
-    def examine(self):
-        
-        """       
-        Returns
-        -------
-        
-        self.data_examined : pandas.DataFrame
-            This is an extension of ``self.data_raw`` which includes new 
-            features.
-        self.input_profiles : dict
-            Dictionary of statistical profiles for the various features
-        """
-
-        try:
-            
-            from sklearn.feature_selection import SelectKBest, f_classif
-            from numpy import log10
-            
-            kBest = len(self.input_names)
-            
-            selector = SelectKBest(f_classif, k = kBest)   
-            selector.fit(self.data.input, 
-                         self.data_raw[self.output_names])
-            scores = -log10(selector.pvalues_)
-            
-            input_relevance = {self.input_names[i]: p for i, p in enumerate(scores)}
-    
-            ###
-    
-            from pandas import DataFrame
-            A = input_relevance
-            
-            B = DataFrame.from_dict(A, orient = 'index').sort_values(
-                    0, ascending = False)
-            
-            import matplotlib.pyplot as plt
-            
-            fontSize = 16
-            top_N = 10
-            predictors = B.index.tolist()[:top_N]
-            scores = B[0].values[:top_N]
-            
-            plt.title('Relevance of features')
-            plt.barh(range(len(predictors)), scores, align = 'center')
-            plt.xlabel('p-values', fontsize = fontSize)
-            plt.yticks(range(len(predictors)), predictors, 
-                       fontsize = fontSize)
-            plt.ylim([-.5,len(predictors)-.5])
-            plt.grid()
-            plt.show()        
-            
-            ###
-        
-        except:
-            
-            input_relevance = None        
-            
-        return {'input_relevance': input_relevance,
-                'input_profiles': None}
-    
-class dummy(data_wrangler):
-    
+class DataWrangler:
     """
-    This class generates a dummy data object with random values and generic
-    categories.
-    """
-    
-    def wrangle(self, data = None):
-        
-        from pandas import DataFrame
-        from numpy.random import rand, choice
-        
-        print('Wrangling the dummy data...')
-        
-        self.input_names = ['feature_'+str(i) for i in range(self.input_dim)]
-        self.output_names = 'target'
-        self.class_names = ['class_'+str(i) for i in range(self.output_dim)]
-        
-        # Human-readable data
-        
-        self.data_raw = DataFrame(
-                {**{input_name: rand(self.nrows) for input_name in self.input_names},
-                 **{'target': [self.class_names[x] for x in choice(len(self.class_names), self.nrows)]}})
-            
-        # Machine-readable data
-        
-        from utilities import binarize        
-        self.data.input = self.data_raw[self.input_names].values
-        (self.data.output, self.label_binarize) = binarize(
-                self.data_raw[self.output_names], self.class_names)         
-
-    def examine(self):
-        
-        print('Examining the dummy data...')
-        
-        return super().examine()
-
-class sklearn_dataset(data_wrangler):
-    
-    """
-    This class loads the scikit-learn data set specified as ``data`` to the
-    constructor.
-    """
-    
-    def wrangle(self, data = None):
-        
-        from sklearn import datasets
-        from pandas import DataFrame
-        from utilities import binarize
-        
-        dataset = eval('datasets.load_'+data+'()')
-        
-        # Retrieve the feature names from the dataset if they're readily 
-        # available.
-        try:
-            self.input_names = dataset.feature_names
-            
-        # If not, just label the features numerically.
-        except:
-            self.input_names = list(range(dataset.data.shape[1]))
-        
-        self.class_names = dataset.target_names
-        (self.nrows, self.input_dim) = dataset.data.shape
-        self.output_dim = len(self.class_names)
-        self.output_names = data
-        
-        # Human-readable data
-        
-        self.data_raw = DataFrame(
-                {**{input_name: dataset.data[:, i] for i, input_name 
-                    in enumerate(self.input_names)},
-                 **{self.output_names: [dataset.target_names[x] for x in dataset.target]}})
-    
-        # Shuffle the rows of data        
-        self.data_raw = self.data_raw.sample(frac = 1)
-        
-        # Machine-readable data
-
-        self.data.input = self.data_raw[self.input_names].values
-        (self.data.output, self.label_binarize) = binarize(
-                self.data_raw[self.output_names], self.class_names)
-
-class strings(data_wrangler):
-    
-    def wrangle(self, data = None):
-        
-        super().wrangle(data)
-        
-        from numpy import array
-        from keras.preprocessing import sequence
-        
-        chardict = dict()
-        for i, char in enumerate(self.chars):
-            chardict[char] = i + 1
-        
-        self.data.input = self.data_raw[self.input_names].map(lambda x: [chardict[y] for y in x])
-        self.data.input = sequence.pad_sequences(self.data.input)
-        
-        try:
-            from numpy import zeros, hstack
-            extra_padding = zeros((self.data.input.shape[0], 
-                                   self.max_seq_len - self.data.input.shape[1]))
-            self.data.input = hstack((extra_padding,
-                                      self.data.input))
-        except:
-            pass
-        
-        self.data.output = array([[x] for x in self.data_raw[self.output_names]])      
-
-class random_walk(data_wrangler):
-
-    """
-    This random walk is prepared specifically for recurrent neural networks.
-    
-    Parameters
+    Attributes
     ----------
-
-    nrows : int
-        Number of walks performed    
-    input_dim : int
-        Dimension of the input space
-    output_dim : int
-        Dimension of the output space
-    min_seq_len : int
-        Minimum number of steps    
-    max_seq_len : int
-        Maximum number of steps
-    max_step : float
-        Maximum amplitude of any given step
-    
-    Returns
-    -------
-    
-    TODO:
+    input : numpy.array
+        Machine-readable input data
+    output : numpy.array
+        Machine-readable output data
+    raw.input : pandas.DataFrame
+        Human-readable input data
+    raw.output : pandas.DataFrame
+        Human-readable output data
+    specs.input : dict
+        Specifications of the input variables (e.g., type, encode, desc)
+    specs.output : dict
+        Specifications of the output variables (e.g., type, encode, desc)
+    nex : int
+        Number of data examples
+    index : str
+        Name of the index
     """
+
+    def __init__(
+            self,
+            default_args=dict(nex=1000, encoder=None),
+            **kwargs):
+
+        from utilities import args_to_attributes
+
+        args_to_attributes(self, default_args, **kwargs)
+
+        self.verify()    
+        self.human_readable()
+        self.machine_readable()        
+
+    def verify(self):
+        """
+        Check and enforce the consistency of the parameters and attributes of
+        the object.
+        """
+
+        pass
+
+    def human_readable(self):
+        """
+        This is where the raw data is loaded and, typically, stored in a human-
+        readable fashion.
+
+        Attributes
+        ----------
+        self.raw.input : DataFrame
+        self.raw.output : DataFrame
+        """
+
+        pass
+
+    def machine_readable(self, pipeline=None):
+        """
+        Attributes
+        ----------
+        self.input : ndarray
+        self.output : ndarray
+        """
+        
+        # If the pipeline is not specified externally, then use the default
+        # pipeline.
+        if pipeline is None:
+            self.pipe()
+        else:
+            self.pipeline = pipeline
+        
+        if self.pipeline.input is not None:
+            self.pipeline.input = self.pipeline.input.fit(
+                self.input, self.output)
+            self.input = self.pipeline.input.transform(self.input)
+
+        if self.pipeline.output is not None:
+            self.pipeline.output = self.pipeline.output.fit(
+                self.output)
+            self.output = self.pipeline.output.transform(self.output)
+
+    def pipe(self):
+        
+        from utilities import dict_to_dot
+        
+        self.input = self.raw.input.values.copy()
+        self.output = self.raw.output.values.copy()
+
+        self.pipeline = dict_to_dot({'input': None, 'output': None})
+
+    def shuffle(self):
+        """
+        Shuffle or stratify the data.
+        """
+
+        pass
+
+    def encode(self):
+
+        pass
+
+    def impute(self):
+
+        pass
+
+    def normalize(self):
+
+        pass
+
+    def reduce(self):
+        
+        print('Reducing...')
+
+        if self.n_components is not None:
+            from sklearn.decomposition import PCA
+            pca = PCA(n_components=self.n_components)
+        else:
+            pca = None
+
+        return pca
+
+    def select(self):
+
+        pass
+
+    def examine(self):
+
+        pass
     
-    def wrangle(self, data = None):
+    def view(self):
+        
+        print('input:', self.input.shape, 'output:', self.output.shape)
+#        print(self.raw.input.head())
+
+
+class Digits(DataWrangler):
+
+    def __init__(
+            self,
+            default_args=dict(
+                nex=800,
+                encoder=True,
+                n_components=17),
+            **kwargs):       
+
+        from utilities import parse_args
+
+        kwargs = parse_args(default_args, kwargs)
+
+        super().__init__(**kwargs)
+
+    def human_readable(self):
 
         from pandas import DataFrame
-        from numpy import append, zeros
-        from sklearn import preprocessing
-        from numpy.random import uniform, choice        
-                
-        self.data_raw = {self.output_names: zeros(self.nrows)}
-        self.data.input = zeros((self.nrows, 
-                                 self.max_seq_len, 
-                                 self.input_dim))
-        self.output_dim = 2**self.input_dim
-        self.class_names = range(self.output_dim)
+        from utilities import dict_to_dot
+        from sklearn import datasets
 
-
-        # Create variable-length sequences.
-        assert 0 < self.min_seq_len < self.max_seq_len
-        self.seq_len = choice(range(self.min_seq_len, self.max_seq_len + 1), self.nrows)
-                
-        # Fixed-length
-        #from numpy import ones
-        #self.seq_len = self.max_seq_len*ones(self.nrows, dtype = int) 
-
-        # For each walk...
-        for row in range(self.nrows):
-            
-            # Steps and position
-
-            self.data_raw[row] = DataFrame(
-                    {str(dim): append([0], uniform(-self.max_step, 
-                     self.max_step, self.seq_len[row] - 1)) for dim in range(self.input_dim)})
+        digits = datasets.load_digits()
     
-            for dim in self.data_raw[row].columns:
-                self.data_raw[row]['position_'+dim] = self.data_raw[row][dim].cumsum()
-                
-            # Input
+        self.specs = dict_to_dot({
+            'input': {'pixel_'+str(n): dict() for n
+                      in range(1, digits.data.shape[1] + 1)},
+            'output': {'target_1': dict()}})
         
-            self.data.input[row][:self.seq_len[row]] = self.data_raw[row][[str(dim) for dim in range(self.input_dim)]].values
+        self.raw = dict_to_dot(
+            {'input': DataFrame(
+                digits.data[:self.nex], columns=self.specs.input.keys()),
+             'output': DataFrame(
+                digits.target[:self.nex], columns=self.specs.output.keys())})
     
-            # Output 
+        self.shuffle()
+    
+    def shuffle(self):
+        
+        print('Shuffling...')
+        
+        self.raw.input = self.raw.input.sample(frac=1)
+        self.raw.output = self.raw.output.loc[self.raw.input.index]
+    
+    def encode(self):
+        
+        print('Encoding...', self.encoder)
+                   
+        if self.encoder is True:
+            from utilities import encoder
+            (self.output, self.encoder) = encoder(range(10), self.output)
+        elif self.encoder is False or self.encoder is None:
+            pass
+        else:
+            self.output = self.encoder.transform(self.output)
+               
+    def pipe(self):
 
-            orthant = [self.data_raw[row]['position_'+str(dim)].iloc[-1] > 0 for dim in range(self.input_dim)]
-            self.data_raw[self.output_names][row] = sum([orthant[dim]*2**dim for dim in range(self.input_dim)])
+        from sklearn.pipeline import Pipeline
+        from utilities import dict_to_dot
 
-        self.label_binarize = preprocessing.LabelBinarizer()
-        self.label_binarize.fit(range(self.output_dim))
-        self.data.output = self.label_binarize.transform(self.data_raw[self.output_names])
+        print('Default digits pipeline')
+        
+        self.input = self.raw.input.values.copy()
+        self.output = self.raw.output.values.copy()
+
+        self.pipeline = dict_to_dot({
+            'input': Pipeline([
+                ('reduce', self.reduce()),
+                ]),
+            'output': Pipeline([
+                ('encode', self.encode())])})
+
+class Titanic(DataWrangler):
+
+    def __init__(
+            self,
+            default_args=dict(
+                nex=None,
+                targets=['Survived'],
+                source='./data/titanic/titanic.csv'),
+            **kwargs):
+
+        from utilities import parse_args
+
+        kwargs = parse_args(default_args, kwargs)
+
+        super().__init__(**kwargs)
+
+    def human_readable(self):
+
+        from pandas import DataFrame
+        from utilities import dict_to_dot, rw_data
+
+        data = rw_data(self.source)
+
+        self.specs = dict_to_dot({
+            'input': {feature: dict() for feature
+                      in data.columns if feature not in self.targets},
+            'output': {target: dict() for target in self.targets}})
+
+        self.raw = dict_to_dot(
+            {'input': DataFrame(
+                data.iloc[:self.nex], columns=self.specs.input.keys()),
+             'output': DataFrame(
+                data.iloc[:self.nex][self.targets],
+                columns=self.specs.output.keys())})
+
+    def pipe(self):
+
+        from sklearn.pipeline import Pipeline
+        
+        self.pipeline = [
+            ('encode', self.encode())
+            ]
+
+        self.pipeline = Pipeline(self.pipeline)
+
+
+class SyntheticClasses(DataWrangler):
+
+    def __init__(
+            self,
+            default_args=dict(
+                name='synthetic classes',
+                scaler=None,
+                n_features=20,
+                n_redundant=0,
+                n_informative=2,
+                n_classes=2,
+                random_state=1,
+                kBest=None,
+                n_clusters_per_class=1),
+            **kwargs):
+
+        from utilities import parse_args, dict_to_dot
+
+        kwargs = parse_args(default_args, kwargs)
+
+        kwargs['specs'] = dict_to_dot({
+            'input': {'feature_'+str(n): dict() for n
+                      in range(1, kwargs['n_features'] + 1)},
+            'output': {'target_1': dict()}})
+
+        super().__init__(**kwargs)
+
+    def verify(self):
+
+        assert self.n_features == len(self.specs.input)
+
+    def human_readable(self):
+
+        from pandas import DataFrame
+        from sklearn.datasets import make_classification
+        from utilities import dict_to_dot
+
+        data = make_classification(
+            n_samples=self.nex,
+            n_features=len(self.specs.input),
+            n_redundant=self.n_redundant,
+            n_informative=self.n_informative,
+            random_state=self.random_state,
+            n_classes=self.n_classes,
+            n_clusters_per_class=self.n_clusters_per_class)
+
+        self.raw = dict_to_dot(
+            {'input': DataFrame(
+                data[0], columns=self.specs.input.keys()),
+             'output': DataFrame(
+                data[1], columns=self.specs.output.keys())})
+
+    def pipe(self):
+
+        from sklearn.pipeline import Pipeline
+
+        self.pipeline = [
+            ('select', self.select())
+            ]
+
+        self.pipeline = Pipeline(self.pipeline)
+
+    def select(self):
+
+        from sklearn.feature_selection import SelectKBest
+
+        if self.kBest is None:
+            self.kBest = self.n_features
+
+        selection = SelectKBest(k=self.kBest)
+
+        return selection
+
+    def normalize(self):
+
+        from sklearn.preprocessing import StandardScaler
+
+        scaler = StandardScaler()
+
+        return scaler
+
+    def reduce(self):
+
+        from sklearn.decomposition import PCA, KernelPCA
+        from sklearn.pipeline import FeatureUnion
+
+        union = [
+            ('pca', PCA()),
+            ('kpca', KernelPCA(kernel='rbf'))
+            ]
+
+        union = FeatureUnion(union)
+
+        return union
+    
+class TimeSeries(DataWrangler):
+
+    def __init__(
+            self,
+            default_args=dict(
+                name='time series',
+                file='./AFT/data/spx_1m_stacked_2015_2016.csv', 
+                targets=['SPX_px_last'],
+                index='Dt',
+                skiprows=None, 
+                n_components=None,  # PCA dimension
+                kBest=None,         # k best natural features
+                scaler=None,
+                dropna=True),
+            **kwargs):
+
+        from utilities import parse_args
+
+        kwargs = parse_args(default_args, kwargs)
+
+        super().__init__(**kwargs)
+
+    def human_readable(self):
+
+        from utilities import dict_to_dot, rw_data
+
+        data = rw_data(
+            self.file, 
+            parameters=dict(
+                nrows=self.nex,
+                skiprows=range(1, self.skiprows))).set_index(self.index)
+
+        if self.dropna:
+            data.dropna(inplace=True)
+
+        self.specs = dict_to_dot({
+            'input': {feature: dict() for feature in data.columns},
+            'output': {target: dict() for target in self.targets}})
+
+        self.raw = dict_to_dot(
+            {'input': data[data.columns].iloc[:-1],
+             'output': data[self.targets].shift(-1).iloc[:-1]})
+    
+        self.raw.output.rename(
+            columns={target: 'next_'+target for target in self.targets}, 
+            inplace=True)
+        
+        self.targets = self.raw.output.columns.tolist()
+    
+        if self.nex is None:
+            self.nex = self.raw.input.shape[1]
+    
+    def pipe(self):
+
+        from numpy import ravel, diff, divide
+        from sklearn.pipeline import Pipeline
+        from utilities import dict_to_dot
+
+        print('Default digits pipeline')
+        
+        self.A = self.raw.input
+        self.output = self.raw.output
+        
+        # Copy the numerical values from the raw data.
+        self.input = self.raw.input.values.copy()
+        self.output = ravel(self.raw.output.values.copy())
+        
+        # For the first four columns, which contain the absolute prices, 
+        # compute the rate of change and replace the corresponding part of the
+        # machinereadable array.
+        self.input[1:, :4] = divide(
+            diff(self.input[:, :4], axis=0), self.input[:-1, :4])
+        
+        # Delete the first row since we cannot compute the rate of change for 
+        # it.
+        self.input = self.input[1:]
+        
+        # Compute the rate of change for the output
+        self.output = divide(diff(self.output, axis=0), self.output[:-1])
+        
+        # Delete the first row of the human-readable data since it does not 
+        # have any rate of change of its own.
+        self.raw.input.drop(self.raw.input.index[0], inplace=True)
+        self.raw.output.drop(self.raw.output.index[0], inplace=True)
+        
+        # Re-adjust the number of rows
+        self.nex -= 1
+
+        self.pipeline = dict_to_dot({
+            'input': Pipeline([
+                ('select', self.select()),
+                ('reduce', self.reduce())
+                ]),
+            'output': None})    
+
+    def select(self, score_func='f_regression'):
+
+        from sklearn.feature_selection import SelectKBest
+
+        if self.kBest is None:
+            self.kBest = len(self.specs.input)
+        
+        assert isinstance(score_func, str)
+        
+        if score_func == 'f_regression':
+            from sklearn.feature_selection import f_regression as score_func           
+        elif score_func == 'mutual_info_regression':
+            from sklearn.feature_selection import mutual_info_regression as score_func
+        elif score_func == 'f_classif':
+            from sklearn.feature_selection import f_classif as score_func
+            
+        selection = SelectKBest(score_func, k=self.kBest)
+
+        return selection
+
+    def normalize(self):
+
+        from sklearn.preprocessing import StandardScaler
+
+        scaler = StandardScaler()
+
+        return scaler
     
     def examine(self):
         
-        self.plot()        
+        from pandas import concat, DataFrame
         
-        return super().examine()
-    
-    def plot(self, row = 0):
+        score_funcs = ['f_classif', 'f_regression', 'mutual_info_regression']
+        
+        feature_scores = DataFrame(
+            columns=score_funcs
+                + ['linear_relevance', 'linear_uniqueness', 
+                   'relevant_uniqueness'],
+            index=self.raw.input.columns)
 
-        """
-        Plot the ``row``th random walk.
-        
-        Parameters
-        ----------
-        
-        row : int
-            Index of the random walk
-        """
-        
-        import visualizers as vis
-        
-        data_raw = self.data_raw[row]
-        seq_len = data_raw.shape[0]
-        
-        if self.input_dim == 2:
-            
-            vis.plot2D(data_raw.position_0, data_raw.position_1,
-                       title = 'Random walk', xlabel = 'Dimension 0',
-                       ylabel = 'Dimension 1', legend = False, marker = 'o')
-        
-        vis.plot2D(list(range(seq_len)), 
-                   tuple(data_raw['position_'+str(dim)] for dim in range(self.input_dim)),
-                   legend = tuple('Dim. '+str(dim) for dim in range(self.input_dim)),
-                   xlabel = 'Step',
-                   ylabel = 'Position')
-        
-class keras_imdb(data_wrangler):
+        # Linear correlation matrix
+        data = concat((self.raw.input, self.raw.output), axis = 1)
+        correlation = data.corr()
+        abs_correlation = abs(correlation)
 
-    def wrangle(self, data = None):
+        # Score from scikit-learn's default `SelectKBest` where `K` is the 
+        # total number of features
+        for score_func in score_funcs:
+            selection = self.select(score_func)        
+            selection.fit(self.raw.input, self.raw.output)        
+            feature_scores[score_func] = selection.scores_
+        
+        # Relevance based on linear correlation
+        feature_scores.linear_relevance = abs_correlation[
+            self.raw.output.columns]
     
-        from numpy import array
-        from pandas import DataFrame
-        from numpy.random import seed
-        from keras.datasets import imdb
-        from sklearn import preprocessing
-        from keras.preprocessing import sequence
+        # Uniqueness based on linear correlation. Make sure not to sum over
+        # the correlation with the target or with the feature itself.
+        feature_scores.linear_uniqueness = abs_correlation.apply(
+            lambda x: len(x - 2)/(sum(x) - 1 - x[self.raw.output.columns[0]]))
         
-        # fix random seed for reproducibility
-        seed(7)
-        
-        self.class_names = range(2)
-        
-        # load the dataset but only keep the top n words, zero the rest
-        (X_train, y_train), _ = imdb.load_data(num_words = self.top_words)
-        X_train = X_train[self.start_row:self.start_row + self.nrows]
-        y_train = y_train[self.start_row:self.start_row + self.nrows]
-        
-        # Input: Truncate and pad input sequences
-        self.data.input = sequence.pad_sequences(
-                X_train, maxlen = self.max_review_length)
-        
-        # Output
-        self.data.output = array([[y] for y in y_train])
-        
-        self.data_raw = DataFrame(
-                {**{self.output_names: self.data.output[:, 0]},
-                 **{str(i): self.data.input[:, i] for i in range(self.max_review_length)}})
+        # Relevant uniqueness based on linear correlation
+        feature_scores.relevant_uniqueness = feature_scores.apply(
+            lambda x: x.linear_relevance * x.linear_uniqueness, axis=1)        
+                
+        return {'correlation': correlation, 'feature_scores': feature_scores}
         
         
-            
-        self.label_binarize = preprocessing.LabelBinarizer()
-        self.label_binarize.fit(self.class_names)
-        self.data.output = self.label_binarize.transform(self.data.output)
