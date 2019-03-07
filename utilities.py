@@ -6,6 +6,188 @@ Created on Thu Sep 13 12:51:51 2018
 @author: ala
 """
 
+
+
+
+def create_model(
+        architecture=None, 
+        input_dim=None, 
+        output_dim=None, 
+        optimizer=None, 
+        loss_function=None,
+        metrics=None):
+
+    from keras.optimizers import SGD
+    from keras.models import Sequential
+    from keras.layers import Dense, Dropout
+
+    model = Sequential()
+
+    # Build the neural network layer by layer
+    for index, layer in architecture.iterrows():
+
+        # Input layer
+        if index == 0:
+
+            model.add(Dense(int(layer.num_nodes),
+                            activation=layer.activation,
+                            input_dim=input_dim))
+
+            model.add(Dropout(layer.dropout))
+
+        # Output layer
+        elif index == len(architecture) - 1:
+
+            model.add(Dense(output_dim,
+                            activation=layer.activation))
+
+        # Hidden layers
+        else:
+
+            model.add(Dense(int(layer.num_nodes),
+                                 activation=layer.activation))
+
+            model.add(Dropout(layer.dropout))
+
+    # TODO: Generalize this to any kind of optimizer
+    try:
+        optimizer = SGD(**optimizer)
+    except BaseException:
+        from keras.optimizers import Adam
+        try:
+            optimizer = eval(optimizer)
+        except BaseException:
+            optimizer = optimizer
+
+    model.compile(loss=loss_function,
+                  optimizer=optimizer,
+                  metrics=metrics)
+
+    return model   
+
+def version_table(print2screen=True):
+    """
+    This function returns the version numbers of the various pieces of software
+    with which this module was tested.
+
+    Notes
+    -----
+    In order for Hyperopt 0.1 to work, ``networkx`` had to be downgraded by
+    running ``pip install networkx==1.11``. This is due to a bug that arises
+    with Hyperopt when version 2.0 of ``networkx`` is installed.
+
+    Also include:
+        - conda install plotly
+
+    Parameters
+    ----------
+
+    print2screen : bool
+        Print the version table to screen (``True``) or return it as a
+        dictionary (``False``)?
+
+    Returns
+    -------
+
+    version_table : dict
+        Dictionary containing the version table
+    """
+
+    import cpuinfo  # python -m pip install -U py-cpuinfo
+    import platform
+    from sys import version_info
+    from keras import __version__ as ke_version
+    from numpy import __version__ as np_version
+    from pandas import __version__ as pd_version
+    from hyperopt import __version__ as hp_version  # pip install hyperopt
+    from tensorflow import __version__ as tf_version
+    from matplotlib import __version__ as plt_version
+
+    # TODO: Add Keras
+
+    version_table = {
+        'Python': ('3.6.6', '.'.join(str(v) for v in version_info[0:3])),
+        'Keras': ('2.1.5', ke_version),
+        'TensorFlow.': ('1.6.0', tf_version),
+        'NumPy': ('1.14.5', np_version),
+        'matplotlib': ('2.2.2', plt_version),
+        'PyQt5': ('5.6.2', None),
+        'pandas': ('0.23.3', pd_version),
+        'Hyperopt': ('0.1', hp_version),
+        'OS': ('Linux-4.13.0-17-generic-x86_64-with-debian-stretch-sid',
+               platform.platform()),
+        'CPU': ('Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz',
+                cpuinfo.get_cpu_info()['brand']),
+        'CUDA': ('8.0.44', None),
+        'GPU': ('NVIDIA GeForce GTX', None)}
+
+    if print2screen:
+
+        # Maximum length of the software names
+        pad = max(map(lambda x: len(x), version_table))
+
+        # Print the table.
+        print('software'.rjust(pad), ': baseline', sep='')
+        print(''.rjust(pad), '  current', sep='')
+        for k in sorted(version_table.keys()):
+            print(k.rjust(pad), ': ', version_table[k][0], sep='')
+            print(''.rjust(pad), '  ', version_table[k][1], sep='')
+
+    return version_table 
+    
+
+def generate_from_regex(
+        n, 
+        regex=None, 
+        regex_db='./data/domains/DGA/regex.csv'):
+    """
+    Parameters
+    ----------
+    n : int
+        Number of DGA domains to generate
+    regex : str, None
+        Either the regular expression or the name of the corresponding malware
+        family. In the latter case, it is assumed that the name of the malware
+        family does not contain any dots (unlike the regex, which has to have a
+        dot, since it generates domain names.) If ``None``, ``n`` domain names
+        from each of the malware families stored in ``regex_db`` are generated.
+    regex_db : str
+        Path to the database of malware families and their corresponding DGA
+        regex. 
+    """
+       
+    import rstr
+    from utilities import rw_data
+
+    # If either a regular expression or a malware family is passed, then return
+    # an array of the corresponding DGAs.
+    if regex is not None:
+
+        # If a  malware family is passed, retrieve its corresponding regular 
+        # expression.
+        if '.' not in regex:
+            
+            regex_db = rw_data(regex_db, parameters=dict(dtype=str)).set_index('malware')
+            regex = regex_db.loc[regex].tolist()[0]
+        
+        DGAs = [rstr.xeger(r''+regex+'') for x in range(n)]
+    
+    # If neither a regular expression nor the name of the malware family is
+    # specified, then generate ``n`` DGAs for each of the malware families 
+    # stored in ``regex_db``.
+    else:
+        
+        regex_db = rw_data(regex_db, parameters=dict(dtype=str)).set_index('malware')
+        
+        DGAs = []
+        
+        for malware in regex_db.index.tolist():
+            
+            regex = regex_db.loc[malware].tolist()[0]
+            DGAs += [rstr.xeger(r''+regex+'') for x in range(n)]
+    
+    return DGAs
+
 def encoder(class_names, data=None, binarize_binary=False):
     """
     Parameters
@@ -121,7 +303,52 @@ def parse_args(default_args, kwargs):
 
     return kwargs
 
-
+class Chronometer:
+    
+    """
+    TODO: The time differences do not make sense. Double-check them.
+    """
+    
+    def __init__(
+            self,
+            index=['event'],
+            start=['start']):
+        
+        from pandas import DataFrame
+        from time import time
+        
+        self.index = index
+        
+        self.chrono = DataFrame(
+            dict(t=[time()], event=start), index=self.index)
+        
+    def add_event(self, event):
+        
+        from pandas import DataFrame
+        from time import time
+        
+        self.chrono = self.chrono.append(
+            DataFrame(dict(t=time(), event=event), index=self.index))
+        
+    def sort(self):
+        
+        self.chrono.sort_values(['t'], inplace=True)
+        self.chrono['diff_t'] = self.chrono.t.diff()
+        
+    def view(self):
+        
+        from visualizers import plotTimeSeries
+        
+        self.sort()
+        
+        print(self.chrono)
+        
+        plotTimeSeries(
+            x=self.chrono.event, 
+            y_dict={'diff_t': self.chrono.diff_t}, legend=False,
+            ylabel='Time [s]')
+    
+        
 def rw_data(path, obj=None, parameters=None):
     """
     Read/write from/to a file.

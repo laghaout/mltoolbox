@@ -9,11 +9,15 @@ Created on Mon Apr 17 08:34:14 2017
 
 class Problem:
 
-    def __init__(self, default_args=None, **kwargs):
+    def __init__(
+            self, 
+            default_args=None, **kwargs):
 
-        from utilities import args_to_attributes
+        from utilities import args_to_attributes, Chronometer
 
         args_to_attributes(self, default_args, **kwargs)
+
+        self.chrono = Chronometer()
 
         self.verify()
         self.pipe()
@@ -37,63 +41,99 @@ class Problem:
 
         pass
 
-    def select(self, data_in=None, data_out=None):
+    def select(self, data=None):
 
         from sklearn.model_selection import GridSearchCV
 
-        if data_in is None:
-            data_in = self.data.input
-        if data_out is None:
-            data_out = self.data.output
+        if data is None:
+            data = self.data.train
 
         self.search = GridSearchCV(
-            self.pipeline, self.params_grid, iid=False, cv=5,
+            self.pipeline, self.params_grid, iid=False, cv=3,
             return_train_score=False)
 
-        self.search.fit(data_in, data_out)
+        self.search.fit(data.input, data.output)
 
         # Save the best estimator
         self.pipeline = self.search.best_estimator_
 
         print("Best parameter (CV score=%0.3f):" % self.search.best_score_)
         print(self.search.best_params_)
-
-    def train(self, data_in=None, data_out=None):
-
-        if data_in is None:
-            data_in = self.data.train.input
-        if data_out is None:
-            data_out = self.data.train.output
-
-        self.fitted_pipeline = self.pipeline.fit(data_in, data_out)
-
-    def test(self, data_in=None, data_out=None):
-
-        if data_in is None:
-            data_in = self.data.test.input
-        if data_out is None:
-            data_out = self.data.test.output
-
-        prediction = self.pipeline.predict(data_in)
-
-        if self.data.test.encoder is not None:
-            data_out = self.data.test.encoder.inverse_transform(data_out)
         
-        self.test_report(prediction, data_out)
+    def train(self, data=None):
         
-        return prediction
+        if data is None:
+            data = self.data.train
+            
+        self.pipeline.fit(data.input, data.output)
+        
+        self.train_report()
+        
+        self.test(data)
+        
+    def train_report(self):
+        
+        from visualizers import plotTimeSeries
+        
+        if self.algo in ['MLP', 'RNN']:        
+            history = self.pipeline.named_steps[self.algo].model.history
+        
+            plotTimeSeries(
+                x=history.epoch, 
+                y_dict={x: history.history[x] for x in history.history.keys()},
+                xlabel='epoch')
+        
+    def test(self, data=None):
+
+        if data is None:
+            data = self.data.test
+            
+        prediction = self.serve(data)
+        
+        return self.test_report(data, prediction)
     
-    def test_report(self, prediction, data_out=None):
+    def test_report(self, actual_data, predicted_data):
         
-        from sklearn.metrics import accuracy_score
+        # Check whether the actual data is a ``data_wrangler`` format object. 
+        # If not, then use it as is.
+        try:
+            actual_data = actual_data.raw.output
+        except:
+            pass
+               
+        # Classification
+        try:
+            from sklearn.metrics import accuracy_score
+            
+            accuracy = accuracy_score(actual_data, predicted_data)
+            print('Accuracy:', accuracy)
+            
+            report = dict(accuracy=accuracy)
+            
+        # Regression
+        except:
+            from sklearn.metrics import mean_squared_error
+            
+            mse = mean_squared_error(actual_data, predicted_data)
+            print('MSE:', mse)
+            
+            report = dict(mse=mse)
         
-        print('Accuracy:', accuracy_score(data_out, prediction))
+        return report
 
-    def serve(self, data_in=None):
+    def serve(self, data):
 
-        # TODO: pipeline.predict()
+        if data is None:
+            data = self.data.serve        
 
-        pass
+        prediction = self.pipeline.predict(data.input)
+
+        if data.pipeline.output is not None:
+            if 'normalize' in data.pipeline.output.named_steps.keys():
+                if data.pipeline.output.named_steps['normalize'] is not None:
+                    prediction = data.pipeline.output.named_steps['normalize'].inverse_transform(prediction)
+        
+        return prediction         
 
     def run(self,
             wrangle=True,
@@ -103,34 +143,51 @@ class Problem:
             test=False,
             serve=False):
 
+        print('********', self.name, '**********')
+
+        self.report = dict()
+
         if wrangle:
             print('\n**** WRANGLE ****\n')
-            self.wrangle()
+            self.chrono.add_event('start wrangle')
+            self.report['wrangle'] = self.wrangle()
+            self.chrono.add_event('end wrangle')
 
         if examine:
             print('\n**** EXAMINE ****\n')
-            self.examine()
+            self.chrono.add_event('start examine')
+            self.report['examine'] = self.examine()
+            self.chrono.add_event('end examine')
 
         if select:
             print('\n**** SELECT ****\n')
-            self.select()
+            self.chrono.add_event('start select')
+            self.report['select'] = self.select()
+            self.chrono.add_event('end select')
 
         if train:
             print('\n**** TRAIN ****\n')
-            self.train()
+            self.chrono.add_event('start train')
+            self.report['train'] = self.train()
+            self.chrono.add_event('end train')
 
         if test:
             print('\n**** TEST ****\n')
-            self.test()
+            self.chrono.add_event('start test')
+            self.report['test'] = self.test()
+            self.chrono.add_event('end test')
 
         if serve:
             print('\n**** SERVE ****\n')
-            self.serve()
+            self.chrono.add_event('start serve')
+            self.report['serve'] = self.serve()
+            self.chrono.add_event('end serve')
+            
+#        self.chrono.view()
 
 
+        
 class Digits(Problem):
-
-    from numpy import logspace
 
     def __init__(
             self,
@@ -193,8 +250,6 @@ class Digits(Problem):
 
 class SyntheticClasses(Problem):
 
-    from numpy import logspace
-
     def __init__(
             self,
             default_args=dict(
@@ -241,96 +296,3 @@ class SyntheticClasses(Problem):
         self.pipeline = Pipeline(
             [('pca', PCA()),
              ('SVC', SVC())])
-    
-class TimeSeries(Problem):
-
-    from numpy import logspace
-
-    def __init__(
-            self,
-            default_args=dict(
-                name='time series',
-                nex={'train': 100000, 'test': 58000},
-                skiprows={'train': 255, 'test': 100000 + 255},
-                algo='RFR',
-                kBest=None,
-                n_components=None,
-                params = {
-                    'RFR': dict(n_estimators=10),
-                    'RNN': dict(epochs=150, batch_size=10, verbose=0)},
-                params_grid={
-                    'RFR': dict(n_estimators=[5, 10, 15, 20]),
-                    'RNN': dict(MLP__epochs=[10, 20, 30])}, 
-                ),
-            **kwargs):
-
-        from utilities import parse_args, dict_to_dot
-
-        kwargs = parse_args(default_args, kwargs)
-
-        kwargs['params_grid'] = kwargs['params_grid'][kwargs['algo']]
-        kwargs['params'] = dict_to_dot(kwargs['params'][kwargs['algo']])
-        
-        for param in ('nex', 'skiprows'):
-            kwargs[param] = dict_to_dot(kwargs[param])
-
-        super().__init__(**kwargs)
-        
-    def verify(self):
-        
-        assert self.skiprows.test == self.skiprows.train + self.nex.train
-
-    def wrangle(self):
-
-        from data_wranglers import TimeSeries
-        from utilities import dict_to_dot
-    
-        self.data = dict_to_dot({
-            'train': TimeSeries(
-                n_components=self.n_components, kBest=self.kBest, 
-                nex=self.nex.train, skiprows=self.skiprows.train),
-            'test': TimeSeries(
-                n_components=self.n_components, kBest=self.kBest, 
-                nex=self.nex.test, skiprows=self.skiprows.test)})
-
-    def pipe(self):
-
-        from sklearn.pipeline import Pipeline
-
-        if self.algo == 'RFR':
-
-            from sklearn.ensemble import RandomForestRegressor as RFR
-    
-            self.pipeline = Pipeline(
-                [('RFR', RFR())])
-    
-        elif self.algo == 'MLP':
-    
-            from keras.wrappers.scikit_learn import KerasClassifier
-            from estimators import MLP
-    
-            MLP_instance = MLP()
-    
-            model = KerasClassifier(
-                build_fn=MLP_instance.build, 
-                epochs=self.params.epochs, 
-                batch_size=self.params.batch_size, 
-                verbose=self.params.verbose)
-    
-            self.pipeline = Pipeline(
-                [('MLP', model)])
-            
-    def test_report(self, prediction, data_out):
-        
-        from sklearn.metrics import mean_squared_error
-        from visualizers import plotTimeSeries
-        
-        mse = mean_squared_error(data_out, prediction)
-        print('MSE:', mse)
-
-        plotTimeSeries(
-            x=self.data.test.raw.output.index, 
-            y_dict={'prediction': prediction.cumsum(), 
-                    'actual': data_out.cumsum()},
-            linewidth=3, save_as='./cumsum_ROC_test.pdf',
-            title='MSE '+str(mse))

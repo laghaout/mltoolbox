@@ -139,7 +139,7 @@ def plotTimeSeries(
         x, y_dict, fontsize=16, markersize=3, xlabel='', ylabel='',
         loc='upper left', bbox_to_anchor=(1, 1), title=None, linewidth=3,
         xtick_frequency=10, rotation=45, save_as=None, adjust_xticks=True,
-        log=(False, False)):
+        log=(False, False), legend=True):
 
     """
     Plot the data stored in the dictionary ``y_dict`` versus ``x``.
@@ -167,7 +167,8 @@ def plotTimeSeries(
         if len(x) > xtick_frequency and adjust_xticks:
             plt.xticks(arange(0, len(x), int(len(x)/xtick_frequency)))
 
-        plt.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, fontsize=fontsize)
+        if legend:
+            plt.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, fontsize=fontsize)
 
         if title is not None:
             plt.title(r'%s' % title, fontsize=fontsize)
@@ -176,5 +177,7 @@ def plotTimeSeries(
 
     if save_as is not None:
         plt.savefig(save_as, bbox_inches='tight')
+        
+    plt.show()
 
-    plt.show()        
+            
