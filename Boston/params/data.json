@@ -1,0 +1,1 @@
+{"name": "Boston housing prices (batch)", "file": "./Boston/data/data.csv", "targets": ["price"], "usecols": ["CRIM", "ZN", "INDUS", "CHAS", "NOX", "RM", "AGE", "DIS", "RAD", "TAX", "PTRATIO", "B", "LSTAT"], "nrows": null, "skiprows": 0}

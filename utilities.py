@@ -3,11 +3,38 @@
 """
 Created on Thu Sep 13 12:51:51 2018
 
-@author: ala
+@author: Amine Laghaout
 """
 
+def generate_windows(start=2008, end=2018):
+    
+    timespans = range(start, end)
+    
+    from pandas import DataFrame, MultiIndex
+    
+    ts = []
+    
+    for k, start in enumerate(timespans[:-1]):
+        ts += [[str(start)+'-01', str(start)+'-12', str(timespans[k+1])+'-01', str(timespans[k+1])+'-06']]
+        ts += [[str(start)+'-06', str(timespans[k+1])+'-06', str(timespans[k+1])+'-07', str(timespans[k+1])+'-12']]
 
+    timespans = DataFrame(ts)
+    timespans.columns = MultiIndex.from_product(
+        [['train', 'test'], 
+         ['start', 'end']])
 
+    ts = []
+
+    for k in timespans.index:
+        ts += [{
+            'train': {
+                'start': timespans.iloc[k][('train', 'start')], 
+                'end': timespans.iloc[k][('train', 'end')]}, 
+            'test': {
+                'start': timespans.iloc[k][('test', 'start')], 
+                'end': timespans.iloc[k][('test', 'end')]}}]
+
+    return ts
 
 def create_model(
         architecture=None, 
@@ -96,6 +123,7 @@ def version_table(print2screen=True):
     import cpuinfo  # python -m pip install -U py-cpuinfo
     import platform
     from sys import version_info
+    from sklearn import __version__ as sk_version
     from keras import __version__ as ke_version
     from numpy import __version__ as np_version
     from pandas import __version__ as pd_version
@@ -111,6 +139,7 @@ def version_table(print2screen=True):
         'TensorFlow.': ('1.6.0', tf_version),
         'NumPy': ('1.14.5', np_version),
         'matplotlib': ('2.2.2', plt_version),
+        'sklearn': ('0.20.1', sk_version), 
         'PyQt5': ('5.6.2', None),
         'pandas': ('0.23.3', pd_version),
         'Hyperopt': ('0.1', hp_version),
@@ -135,58 +164,6 @@ def version_table(print2screen=True):
 
     return version_table 
     
-
-def generate_from_regex(
-        n, 
-        regex=None, 
-        regex_db='./data/domains/DGA/regex.csv'):
-    """
-    Parameters
-    ----------
-    n : int
-        Number of DGA domains to generate
-    regex : str, None
-        Either the regular expression or the name of the corresponding malware
-        family. In the latter case, it is assumed that the name of the malware
-        family does not contain any dots (unlike the regex, which has to have a
-        dot, since it generates domain names.) If ``None``, ``n`` domain names
-        from each of the malware families stored in ``regex_db`` are generated.
-    regex_db : str
-        Path to the database of malware families and their corresponding DGA
-        regex. 
-    """
-       
-    import rstr
-    from utilities import rw_data
-
-    # If either a regular expression or a malware family is passed, then return
-    # an array of the corresponding DGAs.
-    if regex is not None:
-
-        # If a  malware family is passed, retrieve its corresponding regular 
-        # expression.
-        if '.' not in regex:
-            
-            regex_db = rw_data(regex_db, parameters=dict(dtype=str)).set_index('malware')
-            regex = regex_db.loc[regex].tolist()[0]
-        
-        DGAs = [rstr.xeger(r''+regex+'') for x in range(n)]
-    
-    # If neither a regular expression nor the name of the malware family is
-    # specified, then generate ``n`` DGAs for each of the malware families 
-    # stored in ``regex_db``.
-    else:
-        
-        regex_db = rw_data(regex_db, parameters=dict(dtype=str)).set_index('malware')
-        
-        DGAs = []
-        
-        for malware in regex_db.index.tolist():
-            
-            regex = regex_db.loc[malware].tolist()[0]
-            DGAs += [rstr.xeger(r''+regex+'') for x in range(n)]
-    
-    return DGAs
 
 def encoder(class_names, data=None, binarize_binary=False):
     """
@@ -309,26 +286,24 @@ class Chronometer:
     TODO: The time differences do not make sense. Double-check them.
     """
     
-    def __init__(
-            self,
-            index=['event'],
-            start=['start']):
+    def __init__(self):
         
+        from datetime import datetime
         from pandas import DataFrame
         from time import time
-        
-        self.index = index
-        
+                       
         self.chrono = DataFrame(
-            dict(t=[time()], event=start), index=self.index)
+            dict(t=[time()], ts=[datetime.now()], event=['start']))
         
     def add_event(self, event):
         
-        from pandas import DataFrame
+        from datetime import datetime
+#        from pandas import DataFrame
         from time import time
         
         self.chrono = self.chrono.append(
-            DataFrame(dict(t=time(), event=event), index=self.index))
+            dict(t=time(), ts=datetime.now(), event=event),
+            ignore_index=True)
         
     def sort(self):
         
@@ -343,8 +318,10 @@ class Chronometer:
         
         print(self.chrono)
         
+        
+        
         plotTimeSeries(
-            x=self.chrono.event, 
+            x=self.chrono.event.tolist(), 
             y_dict={'diff_t': self.chrono.diff_t}, legend=False,
             ylabel='Time [s]')
     

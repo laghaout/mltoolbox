@@ -112,20 +112,18 @@ class DataWrangler:
 
         pass
 
-    def normalize(self):
+    def normalize(self, scaler=None):
 
         print('Normalizing...')
         
         from sklearn.preprocessing import MinMaxScaler, StandardScaler
-        
-        if self.scaler is True:
+               
+        if scaler is True:
             scaler = StandardScaler()
-        elif isinstance(self.scaler, tuple):
-            scaler = MinMaxScaler(feature_range=self.scaler)
-        elif self.scaler is None or self.scaler is False:
+        elif isinstance(scaler, tuple):
+            scaler = MinMaxScaler(feature_range=scaler)
+        elif scaler is None or scaler is False:
             scaler = None
-        else:
-            scaler = self.scaler
 
         return scaler
 
@@ -186,8 +184,41 @@ class DataWrangler:
                 print(self.raw.output.head(n_head))
             if n_tail > 0:
                 print(self.raw.output.tail(n_tail))
+                
+class Factorizable(DataWrangler):
+    
+    def __init__(
+            self,
+            default_args=dict(
+                factor=7,
+                min_int=-1000,
+                max_int=1000,
+                nex=5000,
+                ncols=2),
+            **kwargs):
+        
+        from utilities import parse_args
 
+        kwargs = parse_args(default_args, kwargs)
 
+        super().__init__(**kwargs)
+    
+    def human_readable(self):
+        
+        from numpy.random import randint
+        from pandas import DataFrame
+        from utilities import dict_to_dot
+
+        self.raw = dict_to_dot({'input': None, 'output': None})
+        
+        self.raw.input = DataFrame(
+            {x: randint(self.min_int, self.max_int, self.nex) for x 
+             in range(self.ncols)})
+        self.raw.input['sum'] = self.raw.input.apply(
+            lambda x: sum([x[k] for k in range(self.ncols)]), axis=1)
+        self.raw.output = self.raw.input.apply(
+            lambda x: x['sum'] % self.factor == 0, axis=1)
+        del self.raw.input['sum']
         
 class Digits(DataWrangler):
 

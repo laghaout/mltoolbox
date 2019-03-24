@@ -3,7 +3,7 @@
 """
 Created on Mon Sep 17 16:42:03 2018
 
-@author: ala
+@author: Amine Laghaout
 """
 
 from sklearn.base import BaseEstimator, ClassifierMixin
