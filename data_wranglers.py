@@ -386,5 +386,5 @@ class SyntheticClasses(DataWrangler):
 
         union = FeatureUnion(union)
 
-        return union       
+        return union    
     

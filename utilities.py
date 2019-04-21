@@ -6,35 +6,8 @@ Created on Thu Sep 13 12:51:51 2018
 @author: Amine Laghaout
 """
 
-def generate_windows(start=2008, end=2018):
-    
-    timespans = range(start, end)
-    
-    from pandas import DataFrame, MultiIndex
-    
-    ts = []
-    
-    for k, start in enumerate(timespans[:-1]):
-        ts += [[str(start)+'-01', str(start)+'-12', str(timespans[k+1])+'-01', str(timespans[k+1])+'-06']]
-        ts += [[str(start)+'-06', str(timespans[k+1])+'-06', str(timespans[k+1])+'-07', str(timespans[k+1])+'-12']]
 
-    timespans = DataFrame(ts)
-    timespans.columns = MultiIndex.from_product(
-        [['train', 'test'], 
-         ['start', 'end']])
-
-    ts = []
-
-    for k in timespans.index:
-        ts += [{
-            'train': {
-                'start': timespans.iloc[k][('train', 'start')], 
-                'end': timespans.iloc[k][('train', 'end')]}, 
-            'test': {
-                'start': timespans.iloc[k][('test', 'start')], 
-                'end': timespans.iloc[k][('test', 'end')]}}]
-
-    return ts
+#%% Open-sourced below
 
 def create_model(
         architecture=None, 
@@ -163,7 +136,6 @@ def version_table(print2screen=True):
             print(''.rjust(pad), '  ', version_table[k][1], sep='')
 
     return version_table 
-    
 
 def encoder(class_names, data=None, binarize_binary=False):
     """
@@ -310,16 +282,14 @@ class Chronometer:
         self.chrono.sort_values(['t'], inplace=True)
         self.chrono['diff_t'] = self.chrono.t.diff()
         
-    def view(self):
+    def view(self, show=True):
         
         from visualizers import plotTimeSeries
         
         self.sort()
         
         print(self.chrono)
-        
-        
-        
+    
         plotTimeSeries(
             x=self.chrono.event.tolist(), 
             y_dict={'diff_t': self.chrono.diff_t}, legend=False,

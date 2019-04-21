@@ -15,7 +15,7 @@ import warnings
 #warnings.filterwarnings('ignore')
 use('agg')
 
-problem = 'digits'
+problem = 'SPX'
 
 if problem is None:
     problem = input('Problem acronym? ')

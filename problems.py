@@ -182,6 +182,8 @@ class Problem:
         # Generate the prediction.
         prediction = self.serve(data)
         
+        print('prediction:', prediction[:5], prediction.shape)
+        
         # Compare the prediction with the actual test data.
         report = self.test_report(data, prediction)
         
@@ -229,6 +231,9 @@ class Problem:
         # regression and evaluate it with the mean squared error.
         except:
             from sklearn.metrics import mean_squared_error
+
+            print('actual_data:', actual_data[:5], actual_data.shape)
+            print('predicted_data:', predicted_data[:5], predicted_data.shape)
             
             mse = mean_squared_error(actual_data, predicted_data)
             print('MSE:', mse)
@@ -253,12 +258,14 @@ class Problem:
             Prediction output by the model
         """
 
+        from numpy import ravel
+
         # If the data is not specified, then use the serving data already 
         # specified in the wrangling stage.
         if data is None:
             data = self.data.serve        
 
-        prediction = self.pipeline.predict(data.input)
+        prediction = ravel(self.pipeline.predict(data.input))
 
         # TODO: Take into account the fact that ``data`` may not necessarily be
         # a ``data_wrangler.DataWrangler`` object, in which case the block 
