@@ -38,9 +38,9 @@ class DataWrangler:
 
         args_to_attributes(self, default_args, **kwargs)
 
-        self.verify()    
+        self.verify()
         self.human_readable()
-        self.machine_readable()        
+        self.machine_readable()
 
     def verify(self):
         """
@@ -70,14 +70,14 @@ class DataWrangler:
         self.input : ndarray
         self.output : ndarray
         """
-        
+
         # If the pipeline is not specified externally, then use the default
         # pipeline.
         if pipeline is None:
             self.pipe()
         else:
             self.pipeline = pipeline
-        
+
         if self.pipeline.input is not None:
             self.pipeline.input = self.pipeline.input.fit(
                 self.input, self.output)
@@ -89,9 +89,9 @@ class DataWrangler:
             self.output = self.pipeline.output.transform(self.output)
 
     def pipe(self):
-        
+
         from utilities import dict_to_dot
-        
+
         self.input = self.raw.input.values.copy()
         self.output = self.raw.output.values.copy()
 
@@ -115,9 +115,9 @@ class DataWrangler:
     def normalize(self, scaler=None):
 
         print('Normalizing...')
-        
+
         from sklearn.preprocessing import MinMaxScaler, StandardScaler
-               
+
         if scaler is True:
             scaler = StandardScaler()
         elif isinstance(scaler, tuple):
@@ -128,7 +128,7 @@ class DataWrangler:
         return scaler
 
     def reduce(self):
-        
+
         print('Reducing...')
 
         if self.n_components is not None:
@@ -142,21 +142,21 @@ class DataWrangler:
     def select(self, score_func='f_regression'):
 
         print('Selecting...')
-        
+
         from sklearn.feature_selection import SelectKBest
 
         if self.kBest is None:
             self.kBest = len(self.specs.input)
-        
+
         assert isinstance(score_func, str)
-        
+
         if score_func == 'f_regression':
-            from sklearn.feature_selection import f_regression as score_func           
+            from sklearn.feature_selection import f_regression as score_func
         elif score_func == 'mutual_info_regression':
             from sklearn.feature_selection import mutual_info_regression as score_func
         elif score_func == 'f_classif':
             from sklearn.feature_selection import f_classif as score_func
-            
+
         selector = SelectKBest(score_func, k=self.kBest)
 
         return selector
@@ -164,15 +164,15 @@ class DataWrangler:
     def examine(self):
 
         pass
-    
+
     def view(self, n_head=3, n_tail=3):
         """
         View the first ``n_head`` and last ``n_tail`` rows of the human-
         readable data.
         """
-        
+
         if isinstance(n_head, int) or isinstance(n_tail, int):
-            
+
             print('Input:', self.input.shape)
             if n_head > 0:
                 print(self.raw.input.head(n_head))
@@ -184,9 +184,10 @@ class DataWrangler:
                 print(self.raw.output.head(n_head))
             if n_tail > 0:
                 print(self.raw.output.tail(n_tail))
-                
+
+
 class Factorizable(DataWrangler):
-    
+
     def __init__(
             self,
             default_args=dict(
@@ -196,30 +197,31 @@ class Factorizable(DataWrangler):
                 nex=5000,
                 ncols=2),
             **kwargs):
-        
+
         from utilities import parse_args
 
         kwargs = parse_args(default_args, kwargs)
 
         super().__init__(**kwargs)
-    
+
     def human_readable(self):
-        
+
         from numpy.random import randint
         from pandas import DataFrame
         from utilities import dict_to_dot
 
         self.raw = dict_to_dot({'input': None, 'output': None})
-        
+
         self.raw.input = DataFrame(
-            {x: randint(self.min_int, self.max_int, self.nex) for x 
+            {x: randint(self.min_int, self.max_int, self.nex) for x
              in range(self.ncols)})
         self.raw.input['sum'] = self.raw.input.apply(
             lambda x: sum([x[k] for k in range(self.ncols)]), axis=1)
         self.raw.output = self.raw.input.apply(
             lambda x: x['sum'] % self.factor == 0, axis=1)
         del self.raw.input['sum']
-        
+
+
 class Digits(DataWrangler):
 
     def __init__(
@@ -228,7 +230,7 @@ class Digits(DataWrangler):
                 nex=800,
                 encoder=True,
                 n_components=17),
-            **kwargs):       
+            **kwargs):
 
         from utilities import parse_args
 
@@ -243,31 +245,31 @@ class Digits(DataWrangler):
         from sklearn import datasets
 
         digits = datasets.load_digits()
-    
+
         self.specs = dict_to_dot({
-            'input': {'pixel_'+str(n): dict() for n
+            'input': {'pixel_' + str(n): dict() for n
                       in range(1, digits.data.shape[1] + 1)},
             'output': {'target_1': dict()}})
-        
+
         self.raw = dict_to_dot(
             {'input': DataFrame(
                 digits.data[:self.nex], columns=self.specs.input.keys()),
              'output': DataFrame(
                 digits.target[:self.nex], columns=self.specs.output.keys())})
-    
+
         self.shuffle()
-    
+
     def shuffle(self):
-        
+
         print('Shuffling...')
-        
+
         self.raw.input = self.raw.input.sample(frac=1)
         self.raw.output = self.raw.output.loc[self.raw.input.index]
-    
+
     def encode(self):
-        
+
         print('Encoding...', self.encoder)
-                   
+
         if self.encoder is True:
             from utilities import encoder
             (self.output, self.encoder) = encoder(range(10), self.output)
@@ -275,23 +277,24 @@ class Digits(DataWrangler):
             pass
         else:
             self.output = self.encoder.transform(self.output)
-               
+
     def pipe(self):
 
         from sklearn.pipeline import Pipeline
         from utilities import dict_to_dot
 
         print('Default digits pipeline')
-        
+
         self.input = self.raw.input.values.copy()
         self.output = self.raw.output.values.copy()
 
         self.pipeline = dict_to_dot({
             'input': Pipeline([
                 ('reduce', self.reduce()),
-                ]),
+            ]),
             'output': Pipeline([
                 ('encode', self.encode())])})
+
 
 class SyntheticClasses(DataWrangler):
 
@@ -314,7 +317,7 @@ class SyntheticClasses(DataWrangler):
         kwargs = parse_args(default_args, kwargs)
 
         kwargs['specs'] = dict_to_dot({
-            'input': {'feature_'+str(n): dict() for n
+            'input': {'feature_' + str(n): dict() for n
                       in range(1, kwargs['n_features'] + 1)},
             'output': {'target_1': dict()}})
 
@@ -351,7 +354,7 @@ class SyntheticClasses(DataWrangler):
 
         self.pipeline = [
             ('select', self.select())
-            ]
+        ]
 
         self.pipeline = Pipeline(self.pipeline)
 
@@ -382,9 +385,8 @@ class SyntheticClasses(DataWrangler):
         union = [
             ('pca', PCA()),
             ('kpca', KernelPCA(kernel='rbf'))
-            ]
+        ]
 
         union = FeatureUnion(union)
 
-        return union    
-    
+        return union

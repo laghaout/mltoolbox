@@ -9,34 +9,34 @@ Created on Mon Apr 17 08:34:14 2017
 
 class Problem:
     """
-    This class represents a generic machine learning problem as it lines up the 
-    various stages, namely 
-    
-    - data wrangling with ``wrangle()``, 
-    - data examination with ``examine()``, 
-    - model selection with ``select()``, 
+    This class represents a generic machine learning problem as it lines up the
+    various stages, namely
+
+    - data wrangling with ``wrangle()``,
+    - data examination with ``examine()``,
+    - model selection with ``select()``,
     - model training with ``train()``,
     - model testing with ``test()``, and
     - model serving with ``serve()``
-    
+
     into a single "pipeline" which can be invoked by ``run()``.
-    
-    The arguments to the problem object as well as to all its constiuent 
+
+    The arguments to the problem object as well as to all its constiuent
     functions above are passed either as a dictionary or as a string specifying
-    the path to the dictionary. These arguments are processed in 
+    the path to the dictionary. These arguments are processed in
     ``__init__()`` and consistency-checked by ``verify()``.
-    
+
     The machine learning model itself is assembled in ``pipe()``.
     """
 
     def __init__(
-            self, 
+            self,
             default_args=None, **kwargs):
 
         from utilities import args_to_attributes, Chronometer
 
         # Supersede the default arguments ``default_args`` with the arguments
-        # passed as ``**kwargs``. All these  arguments will then be attributed 
+        # passed as ``**kwargs``. All these  arguments will then be attributed
         # to the object.
         args_to_attributes(self, default_args, **kwargs)
 
@@ -45,7 +45,7 @@ class Problem:
 
         # Verify the consistency and integrity of the arguments.
         self.verify()
-        
+
         # Assemble the model pipeline (typically with a scikit-learn pipeline).
         self.pipe()
 
@@ -68,37 +68,37 @@ class Problem:
     def wrangle(self):
         """
         Wrangle the data. This is where the data objects for training, testing,
-        and serving could be defined and stored as, say, 
+        and serving could be defined and stored as, say,
         ``self.data.{train, test, serve}``.
         """
 
         pass
-    
+
     def examine(self):
         """
-        Examine the data. E.g., this is where exploratory statistical analysis 
+        Examine the data. E.g., this is where exploratory statistical analysis
         of the data is performed.
         """
 
-        pass    
+        pass
 
     def select(self, data=None, update_with_best=True):
         """
         Select the best model. This is where the hyperparameter selection is
         is performed.
-        
+
         Parameters
         ----------
         data : None, ``data_wrangler.DataWrangler``, numpy.array
-            Data to be selected ib. If None, the training data specified at the 
-            wrangling stage is used.    
+            Data to be selected ib. If None, the training data specified at the
+            wrangling stage is used.
         update_with_best : bool
-            If True, replace the 
+            If True, replace the
         """
 
         from sklearn.model_selection import GridSearchCV
 
-        # If the data is not specified, then use the training data already 
+        # If the data is not specified, then use the training data already
         # specified in the wrangling stage.
         if data is None:
             data = self.data.train
@@ -115,49 +115,49 @@ class Problem:
 
         print('Best parameter (CV score=%0.3f):' % self.search.best_score_)
         print(self.search.best_params_)
-        
+
     def train(self, data=None):
         """
         Train the model.
-        
+
         Parameters
         ----------
         data : None, ``data_wrangler.DataWrangler``, numpy.array
-            Data to be trained on. If None, the training data specified at the 
-            wrangling stage is used.        
+            Data to be trained on. If None, the training data specified at the
+            wrangling stage is used.
         """
-        
-        # If the data is not specified, then use the training data already 
+
+        # If the data is not specified, then use the training data already
         # specified in the wrangling stage.
         if data is None:
             data = self.data.train
-        
+
         self.pipeline.fit(data.input, data.output)
-        
+
         # Report on the training.
         self.train_report()
-        
+
         # Test the model on the training set.
         self.test(data)
-        
+
     def train_report(self):
         """
         Report on the training.
         """
-        
+
         from visualizers import plotTimeSeries
-        
+
         # If the algorithm is a neural network in Keras, retreive the training
         # history.
-        if self.algo in ['MLP', 'RNN']:        
-            
+        if self.algo in ['MLP', 'RNN']:
+
             history = self.pipeline.named_steps[self.algo].model.history
-        
+
             plotTimeSeries(
-                x=history.epoch, 
+                x=history.epoch,
                 y_dict={x: history.history[x] for x in history.history.keys()},
                 xlabel='epoch')
-        
+
     def test(self, data=None):
         """
         Test the model.
@@ -165,34 +165,34 @@ class Problem:
         Parameters
         ----------
         data : None, ``data_wrangler.DataWrangler``, numpy.array
-            Data to be tested on. If None, the testing data specified at the 
+            Data to be tested on. If None, the testing data specified at the
             wrangling stage is used.
-        
+
         Returns
         -------
         report : dict
             Test report.
         """
 
-        # If the data is not specified, then use the testing data already 
+        # If the data is not specified, then use the testing data already
         # specified in the wrangling stage.
         if data is None:
             data = self.data.test
-        
+
         # Generate the prediction.
         prediction = self.serve(data)
-        
+
         print('prediction:', prediction[:5], prediction.shape)
-        
+
         # Compare the prediction with the actual test data.
         report = self.test_report(data, prediction)
-        
+
         return report
-    
+
     def test_report(self, actual_data, predicted_data):
         """
         Report on the testing.
-        
+
         TODO: Replace the try~except blocks with something more elegant.
 
         Parameters
@@ -201,14 +201,14 @@ class Problem:
             Data to be tested on
         predicted_data : numpy.array
             Predicted data
-        
+
         Returns
         -------
         report : dict
             Test report.
         """
-        
-        # Check whether the actual data is a ``data_wrangler.DataWrangler`` 
+
+        # Check whether the actual data is a ``data_wrangler.DataWrangler``
         # object. If it is, extract only the raw output. Otherwise, use it as
         # is.
         try:
@@ -221,37 +221,37 @@ class Problem:
         try:
             # TODO: Replace the accuracy with the confusion matrix.
             from sklearn.metrics import accuracy_score
-            
+
             accuracy = accuracy_score(actual_data, predicted_data)
             print('Accuracy:', accuracy)
-            
+
             report = dict(accuracy=accuracy)
-            
+
         # If the problem is not a classification, then assume it is a
         # regression and evaluate it with the mean squared error.
-        except:
+        except BaseException:
             from sklearn.metrics import mean_squared_error
 
             print('actual_data:', actual_data[:5], actual_data.shape)
             print('predicted_data:', predicted_data[:5], predicted_data.shape)
-            
+
             mse = mean_squared_error(actual_data, predicted_data)
             print('MSE:', mse)
-            
+
             report = dict(mse=mse)
-        
+
         return report
 
     def serve(self, data=None):
         """
         Serve the model.
-        
+
         Parameters
         ----------
         data : None, ``data_wrangler.DataWrangler``, numpy.array
-            Data to be served on. If None, the serving data specified at the 
+            Data to be served on. If None, the serving data specified at the
             wrangling stage is used.
-        
+
         Returns
         -------
         prediction : numpy.array
@@ -260,17 +260,17 @@ class Problem:
 
         from numpy import ravel
 
-        # If the data is not specified, then use the serving data already 
+        # If the data is not specified, then use the serving data already
         # specified in the wrangling stage.
         if data is None:
-            data = self.data.serve        
+            data = self.data.serve
 
         prediction = ravel(self.pipeline.predict(data.input))
 
         # TODO: Take into account the fact that ``data`` may not necessarily be
-        # a ``data_wrangler.DataWrangler`` object, in which case the block 
+        # a ``data_wrangler.DataWrangler`` object, in which case the block
         # below will fail.
-        # 
+        #
         # If the output data has been normalized, undo the normalization so as
         # to have a more "natural" representation of the output.
         #
@@ -278,17 +278,18 @@ class Problem:
         if data.pipeline.output is not None:
             if 'normalize' in data.pipeline.output.named_steps.keys():
                 if data.pipeline.output.named_steps['normalize'] is not None:
-                    prediction = data.pipeline.output.named_steps['normalize'].inverse_transform(prediction)
-        
+                    prediction = data.pipeline.output.named_steps['normalize'].inverse_transform(
+                        prediction)
+
         return prediction
-    
+
     def serve_report(self):
         """
-        Report on the serving. 
+        Report on the serving.
         """
-        
+
         pass
-    
+
     def run(self,
             wrangle=True,
             examine=False,
@@ -311,14 +312,14 @@ class Problem:
             Test the model?
         serve : bool
             Serve the model?
-            
-        TODO: Take into account the possibility of passing 
+
+        TODO: Take into account the possibility of passing
         ``data_wranglers.DataWrangler`` objects instead of just boolean flags.
         """
 
-        print('********', '*'*len(self.name), '**********', sep='*')
+        print('********', '*' * len(self.name), '**********', sep='*')
         print('********', self.name, '**********')
-        print('********', '*'*len(self.name), '**********', sep='*')
+        print('********', '*' * len(self.name), '**********', sep='*')
 
         self.report = dict()
 
@@ -357,24 +358,25 @@ class Problem:
             self.chrono.add_event('start serve')
             self.report['serve'] = self.serve()
             self.chrono.add_event('end serve')
-            
+
 #        self.chrono.view()
 
+
 class Factorizable(Problem):
-    
+
     def __init__(
             self,
             default_args=dict(
                 name='factorizable',
                 report_dir='/Factorizable/reports/',
-                
+
                 # Data
                 nex={'train': 200, 'test': 100},
                 factor=7,
                 min_int=-1000,
                 max_int=1000,
                 ncols=2,
-                
+
                 # Pipeline
                 algo='SVC',
                 n_components=None,      # PCA components
@@ -382,14 +384,14 @@ class Factorizable(Problem):
                 scaler={'input': True,
                         'output': True},
                 params={
-                    'SVC': dict(gamma=1/64),                        
+                    'SVC': dict(gamma=1 / 64),
                     'RFC': dict(RFC__n_estimators=35)},
                 params_grid={
-                    'SVC': dict(SVC__gamma=[0.0001, .001, .01, .1]),                        
-                    'RFC': dict(RFC__n_estimators=[5, 10, 15, 20, 25, 30, 35])}, 
-                ),
+                    'SVC': dict(SVC__gamma=[0.0001, .001, .01, .1]),
+                    'RFC': dict(RFC__n_estimators=[5, 10, 15, 20, 25, 30, 35])},
+            ),
             **kwargs):
-                        
+
         import os
         from utilities import parse_args, dict_to_dot
 
@@ -398,14 +400,14 @@ class Factorizable(Problem):
         kwargs['params_grid'] = kwargs['params_grid'][kwargs['algo']]
         kwargs['params'] = dict_to_dot(kwargs['params'][kwargs['algo']])
         kwargs['nex'] = dict_to_dot(kwargs['nex'])
-        
+
         super().__init__(**kwargs)
 
     def wrangle(self):
-        
+
         from data_wranglers import Factorizable
-        from utilities import dict_to_dot        
-        
+        from utilities import dict_to_dot
+
         self.data = dict_to_dot({
             'train': Factorizable(
                 factor=self.factor,
@@ -418,27 +420,28 @@ class Factorizable(Problem):
                 max_int=self.max_int,
                 min_int=self.min_int,
                 nex=self.nex.test,
-                ncols=self.ncols                    
-                )})
-            
+                ncols=self.ncols
+            )})
+
     def pipe(self):
-        
+
         from sklearn.pipeline import Pipeline
 
         if self.algo == 'SVC':
 
             from sklearn.svm import SVC
-    
+
             self.pipeline = Pipeline(
                 [('SVC', SVC(gamma=self.params.gamma))])
-    
+
         elif self.algo == 'RFC':
-    
+
             from sklearn.ensemble import RandomForestClassifier as RFC
-    
+
             self.pipeline = Pipeline(
                 [('RFC', RFC(
-                    n_estimators=self.params.RFC__n_estimators))])        
+                    n_estimators=self.params.RFC__n_estimators))])
+
 
 class Digits(Problem):
 
@@ -448,13 +451,13 @@ class Digits(Problem):
                 name='digits',
                 nex=1000,
                 algo='SVC',
-                params = {
-                    'SVC': dict(gamma=1/64),
+                params={
+                    'SVC': dict(gamma=1 / 64),
                     'MLP': dict(epochs=150, batch_size=10, verbose=0)},
                 params_grid={
                     'SVC': dict(SVC__gamma=[0.0001, .001, .01, .1]),
-                    'MLP': dict(MLP__epochs=[10, 20, 30])}, 
-                ),
+                    'MLP': dict(MLP__epochs=[10, 20, 30])},
+            ),
             **kwargs):
 
         from utilities import dict_to_dot, parse_args
@@ -480,23 +483,23 @@ class Digits(Problem):
         if self.algo == 'SVC':
 
             from sklearn.svm import SVC
-    
+
             self.pipeline = Pipeline(
                 [('SVC', SVC(gamma=self.params.gamma))])
-    
+
         elif self.algo == 'MLP':
-    
+
             from keras.wrappers.scikit_learn import KerasClassifier
             from estimators import MLP
-    
+
             MLP_instance = MLP()
-    
+
             model = KerasClassifier(
-                build_fn=MLP_instance.build, 
-                epochs=self.params.epochs, 
-                batch_size=self.params.batch_size, 
+                build_fn=MLP_instance.build,
+                epochs=self.params.epochs,
+                batch_size=self.params.batch_size,
                 verbose=self.params.verbose)
-    
+
             self.pipeline = Pipeline(
                 [('MLP', model)])
 
@@ -516,9 +519,9 @@ class SyntheticClasses(Problem):
                 n_clusters_per_class=1,
                 params_grid=dict(
                     pca__n_components=[5, 20, 30, 40, 45, 50, 55, 64],
-                    SVC__gamma=[0.00025*n for n in range(1, 10)]
-                    )
-                ),
+                    SVC__gamma=[0.00025 * n for n in range(1, 10)]
+                )
+            ),
             **kwargs):
 
         from utilities import parse_args
@@ -549,4 +552,3 @@ class SyntheticClasses(Problem):
         self.pipeline = Pipeline(
             [('pca', PCA()),
              ('SVC', SVC())])
-

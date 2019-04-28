@@ -8,8 +8,9 @@ Created on Mon Sep 17 16:42:03 2018
 
 from sklearn.base import BaseEstimator, ClassifierMixin
 
+
 class Estimator:
-    
+
     def __init__(
             self,
             default_args=None,
@@ -19,23 +20,24 @@ class Estimator:
 
         args_to_attributes(self, default_args, **kwargs)
 
-        self.verify()    
+        self.verify()
 
     def verify(self):
-        
+
         pass
 
     def build(self):
-        
+
         pass
-    
+
+
 class MLP(Estimator):
 
     def __init__(
             self,
             default_args=dict(
                 name='mutli-layer perceptron',
-                ),
+            ),
             **kwargs):
 
         from utilities import parse_args
@@ -45,7 +47,7 @@ class MLP(Estimator):
         super().__init__(**kwargs)
 
     def build(self, architecture):
-        
+
         from keras.optimizers import SGD
         from keras.models import Sequential
         from keras.layers import Dense, Dropout
@@ -95,15 +97,15 @@ class MLP(Estimator):
                            metrics=self.metrics)
 
         return self.model
-    
-    
+
+
 class RNN(Estimator):
 
     def __init__(
             self,
             default_args=dict(
                 name='recurrent neural network',
-                ),
+            ),
             **kwargs):
 
         from utilities import parse_args
@@ -111,7 +113,7 @@ class RNN(Estimator):
         kwargs = parse_args(default_args, kwargs)
 
         super().__init__(**kwargs)
-        
+
     def build(self):
 
         # LSTM with dropout for sequence classification in the IMDB dataset
@@ -158,7 +160,7 @@ class RNN(Estimator):
         self.model.compile(loss=self.loss_function,
                            optimizer=self.optimizer,
                            metrics=self.metrics)
-        
+
         return self.model
 
 

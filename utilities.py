@@ -7,13 +7,11 @@ Created on Thu Sep 13 12:51:51 2018
 """
 
 
-#%% Open-sourced below
-
 def create_model(
-        architecture=None, 
-        input_dim=None, 
-        output_dim=None, 
-        optimizer=None, 
+        architecture=None,
+        input_dim=None,
+        output_dim=None,
+        optimizer=None,
         loss_function=None,
         metrics=None):
 
@@ -45,7 +43,7 @@ def create_model(
         else:
 
             model.add(Dense(int(layer.num_nodes),
-                                 activation=layer.activation))
+                            activation=layer.activation))
 
             model.add(Dropout(layer.dropout))
 
@@ -63,7 +61,8 @@ def create_model(
                   optimizer=optimizer,
                   metrics=metrics)
 
-    return model   
+    return model
+
 
 def version_table(print2screen=True):
     """
@@ -112,7 +111,7 @@ def version_table(print2screen=True):
         'TensorFlow.': ('1.6.0', tf_version),
         'NumPy': ('1.14.5', np_version),
         'matplotlib': ('2.2.2', plt_version),
-        'sklearn': ('0.20.1', sk_version), 
+        'sklearn': ('0.20.1', sk_version),
         'PyQt5': ('5.6.2', None),
         'pandas': ('0.23.3', pd_version),
         'Hyperopt': ('0.1', hp_version),
@@ -135,7 +134,8 @@ def version_table(print2screen=True):
             print(k.rjust(pad), ': ', version_table[k][0], sep='')
             print(''.rjust(pad), '  ', version_table[k][1], sep='')
 
-    return version_table 
+    return version_table
+
 
 def encoder(class_names, data=None, binarize_binary=False):
     """
@@ -179,6 +179,7 @@ def encoder(class_names, data=None, binarize_binary=False):
     else:
 
         return label_binarizer
+
 
 def dict_to_dot(dictionary):
     """
@@ -252,50 +253,51 @@ def parse_args(default_args, kwargs):
 
     return kwargs
 
+
 class Chronometer:
-    
+
     """
     TODO: The time differences do not make sense. Double-check them.
     """
-    
+
     def __init__(self):
-        
+
         from datetime import datetime
         from pandas import DataFrame
         from time import time
-                       
+
         self.chrono = DataFrame(
             dict(t=[time()], ts=[datetime.now()], event=['start']))
-        
+
     def add_event(self, event):
-        
+
         from datetime import datetime
 #        from pandas import DataFrame
         from time import time
-        
+
         self.chrono = self.chrono.append(
             dict(t=time(), ts=datetime.now(), event=event),
             ignore_index=True)
-        
+
     def sort(self):
-        
+
         self.chrono.sort_values(['t'], inplace=True)
         self.chrono['diff_t'] = self.chrono.t.diff()
-        
+
     def view(self, show=True):
-        
+
         from visualizers import plotTimeSeries
-        
+
         self.sort()
-        
+
         print(self.chrono)
-    
+
         plotTimeSeries(
-            x=self.chrono.event.tolist(), 
+            x=self.chrono.event.tolist(),
             y_dict={'diff_t': self.chrono.diff_t}, legend=False,
             ylabel='Time [s]')
-    
-        
+
+
 def rw_data(path, obj=None, parameters=None):
     """
     Read/write from/to a file.

@@ -6,17 +6,19 @@ Created on Wed Feb  6 16:14:06 2019
 @author: Amine Laghaout
 """
 
+
 class Visualizer:
 
     def __init__(
-            self, 
-            default_args=dict(save_as=None), 
+            self,
+            default_args=dict(save_as=None),
             **kwargs):
 
         from utilities import args_to_attributes
 
         args_to_attributes(self, default_args, **kwargs)
-        
+
+
 class Plot2D(Visualizer):
 
     from numpy import logspace
@@ -24,12 +26,12 @@ class Plot2D(Visualizer):
     def __init__(
             self,
             default_args=dict(
-                linewidth=5, show=True, marker=None, legend=None, xlabel='', 
-                ylabel='', title='', fontsize=16, smooth=None, save_as=None, 
-                axis_range=None, grid=True, log=(False, False),  
-                markersize=None, xticks=None, drawstyle=None, 
+                linewidth=5, show=True, marker=None, legend=None, xlabel='',
+                ylabel='', title='', fontsize=16, smooth=None, save_as=None,
+                axis_range=None, grid=True, log=(False, False),
+                markersize=None, xticks=None, drawstyle=None,
                 fill_between=False,
-                ),
+            ),
             **kwargs):
 
         import matplotlib.pyplot as plt
@@ -37,11 +39,11 @@ class Plot2D(Visualizer):
 
         kwargs = parse_args(default_args, kwargs)
 
-        super().__init__(**kwargs)  
-        
+        super().__init__(**kwargs)
+
         x = self.x
         y = self.y
-        
+
         if not self.show:
             plt.ioff()
 
@@ -134,20 +136,20 @@ class Plot2D(Visualizer):
             plt.show()
 
         plt.clf()
-            
+
+
 def plotTimeSeries(
         x, y_dict, fontsize=16, markersize=3, xlabel='', ylabel='',
         loc='upper left', bbox_to_anchor=(1, 1), title=None, linewidth=3,
         xtick_frequency=10, rotation=45, save_as=None, adjust_xticks=True,
         log=(False, False), legend=True):
-
     """
     Plot the data stored in the dictionary ``y_dict`` versus ``x``.
     """
 
     import matplotlib.pyplot as plt
     from numpy import arange
-    
+
     plt.figure()
 
     for y_key in y_dict.keys():
@@ -157,7 +159,7 @@ def plotTimeSeries(
         plt.xlabel(r'%s' % xlabel, fontsize=fontsize)
         plt.ylabel(r'%s' % ylabel, fontsize=fontsize)
         plt.setp(plt.xticks()[1], rotation=rotation)
-#        ax = plt.gca() 
+#        ax = plt.gca()
 
         # Use logarithmic scale?
         if log[0]:
@@ -174,7 +176,10 @@ def plotTimeSeries(
 #                pass
 
         if legend:
-            plt.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, fontsize=fontsize)
+            plt.legend(
+                loc=loc,
+                bbox_to_anchor=bbox_to_anchor,
+                fontsize=fontsize)
 
         if title is not None:
             plt.title(r'%s' % title, fontsize=fontsize)
@@ -183,10 +188,10 @@ def plotTimeSeries(
 
     if save_as is not None:
         plt.savefig(save_as, bbox_inches='tight')
-    
+
     plt.show()
 
-    
+
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
