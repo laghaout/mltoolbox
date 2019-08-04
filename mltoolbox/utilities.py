@@ -1,10 +1,72 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 13 12:51:51 2018
+Created on Thu Aug 24 12:51:51 2017
 
 @author: Amine Laghaout
 """
+
+import cpuinfo  # python -m pip install -U py-cpuinfo
+from datetime import datetime
+from json import dump as dump_json
+from json import load as load_json
+from hyperopt import __version__ as hp_version  # pip install hyperopt
+from keras import __version__ as ke_version
+from keras.optimizers import SGD
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from matplotlib import __version__ as plt_version
+from numpy import hstack
+from numpy import __version__ as np_version
+import os
+from pandas import DataFrame, MultiIndex, read_csv, read_hdf
+from pandas import __version__ as pd_version
+from pickle import dump as dump_pickle
+from pickle import load as load_pickle
+import platform
+from sklearn import __version__ as sk_version
+from sklearn.preprocessing import LabelBinarizer
+from sys import version_info
+from tensorflow import __version__ as tf_version
+from time import time
+from types import SimpleNamespace
+
+from . import visualizers as vis
+
+
+def generate_windows(start=2008, end=2018):
+
+    timespans = range(start, end)
+
+    ts = []
+
+    for k, start in enumerate(timespans[:-1]):
+        ts += [[str(start) + '-01',
+                str(start) + '-12',
+                str(timespans[k + 1]) + '-01',
+                str(timespans[k + 1]) + '-06']]
+        ts += [[str(start) + '-06',
+                str(timespans[k + 1]) + '-06',
+                str(timespans[k + 1]) + '-07',
+                str(timespans[k + 1]) + '-12']]
+
+    timespans = DataFrame(ts)
+    timespans.columns = MultiIndex.from_product(
+        [['train', 'test'],
+         ['start', 'end']])
+
+    ts = []
+
+    for k in timespans.index:
+        ts += [{
+            'train': {
+                'start': timespans.iloc[k][('train', 'start')],
+                'end': timespans.iloc[k][('train', 'end')]},
+            'test': {
+                'start': timespans.iloc[k][('test', 'start')],
+                'end': timespans.iloc[k][('test', 'end')]}}]
+
+    return ts
 
 
 def create_model(
@@ -14,10 +76,6 @@ def create_model(
         optimizer=None,
         loss_function=None,
         metrics=None):
-
-    from keras.optimizers import SGD
-    from keras.models import Sequential
-    from keras.layers import Dense, Dropout
 
     model = Sequential()
 
@@ -50,11 +108,11 @@ def create_model(
     # TODO: Generalize this to any kind of optimizer
     try:
         optimizer = SGD(**optimizer)
-    except BaseException:
-        from keras.optimizers import Adam
+    except Exception:
+
         try:
             optimizer = eval(optimizer)
-        except BaseException:
+        except Exception:
             optimizer = optimizer
 
     model.compile(loss=loss_function,
@@ -91,17 +149,6 @@ def version_table(print2screen=True):
     version_table : dict
         Dictionary containing the version table
     """
-
-    import cpuinfo  # python -m pip install -U py-cpuinfo
-    import platform
-    from sys import version_info
-    from sklearn import __version__ as sk_version
-    from keras import __version__ as ke_version
-    from numpy import __version__ as np_version
-    from pandas import __version__ as pd_version
-    from hyperopt import __version__ as hp_version  # pip install hyperopt
-    from tensorflow import __version__ as tf_version
-    from matplotlib import __version__ as plt_version
 
     # TODO: Add Keras
 
@@ -157,10 +204,7 @@ def encoder(class_names, data=None, binarize_binary=False):
         Binarized numpy array of dimension ``(len(data), len(class_names))``
         corresponding to ``data``
     label_binarizer :
-
     """
-
-    from sklearn.preprocessing import LabelBinarizer
 
     label_binarizer = LabelBinarizer()
     label_binarizer.fit(class_names)
@@ -171,7 +215,6 @@ def encoder(class_names, data=None, binarize_binary=False):
 
         if binarized_data.shape[1] == 1 and binarize_binary:
 
-            from numpy import hstack
             binarized_data = hstack((binarized_data, 1 - binarized_data))
 
         return (binarized_data, label_binarizer)
@@ -192,8 +235,6 @@ def dict_to_dot(dictionary):
     -------
     dot : Name space corresponding to the input dictionary
     """
-
-    from types import SimpleNamespace
 
     dot = SimpleNamespace(**dictionary)
 
@@ -226,6 +267,13 @@ def args_to_attributes(obj, default_args=None, **kwargs):
 
 def parse_args(default_args, kwargs):
     """
+    TODO: Requirements
+    - Handle dictionaries only
+    - Either manual entries or string with path
+    - Default dictionary
+    - Allow for fields not in the default dictionary
+    - Child class overwrite parent class defaults
+
     Parameters
     ----------
     default_args : dict, None, str
@@ -255,25 +303,16 @@ def parse_args(default_args, kwargs):
 
 
 class Chronometer:
-
     """
     TODO: The time differences do not make sense. Double-check them.
     """
 
     def __init__(self):
 
-        from datetime import datetime
-        from pandas import DataFrame
-        from time import time
-
         self.chrono = DataFrame(
             dict(t=[time()], ts=[datetime.now()], event=['start']))
 
     def add_event(self, event):
-
-        from datetime import datetime
-#        from pandas import DataFrame
-        from time import time
 
         self.chrono = self.chrono.append(
             dict(t=time(), ts=datetime.now(), event=event),
@@ -284,15 +323,13 @@ class Chronometer:
         self.chrono.sort_values(['t'], inplace=True)
         self.chrono['diff_t'] = self.chrono.t.diff()
 
-    def view(self, show=True):
-
-        from visualizers import plotTimeSeries
+    def view(self):
 
         self.sort()
 
         print(self.chrono)
 
-        plotTimeSeries(
+        vis.plot_time_series(
             x=self.chrono.event.tolist(),
             y_dict={'diff_t': self.chrono.diff_t}, legend=False,
             ylabel='Time [s]')
@@ -322,19 +359,15 @@ def rw_data(path, obj=None, parameters=None):
     if obj is None:
 
         if extension == 'pkl':
-            from pickle import load
-            obj = load(open(path, 'rb'))
+            obj = load_pickle(open(path, 'rb'))
         elif extension == 'json':
-            from json import load
-            obj = load(open(path, 'rb'))
+            obj = load_json(open(path, 'rb'))
         elif extension in {'hdf5', 'h5', 'hdf'}:
-            from pandas import read_hdf
             if parameters is None:
                 obj = read_hdf(path)
             else:
                 obj = read_hdf(path, **parameters)
         elif extension == 'csv':
-            from pandas import read_csv
             if parameters is None:
                 obj = read_csv(path)
             else:
@@ -348,18 +381,19 @@ def rw_data(path, obj=None, parameters=None):
     else:
 
         # Make sure the directory exists
-        import os
+
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         if extension == 'pkl':
-            from pickle import dump
-            dump(obj, open(path, 'wb'))
+            dump_pickle(obj, open(path, 'wb'))
         elif extension == 'json':
-            from json import dump
-            dump(obj, fp=open(path, 'w'))
+            dump_json(obj, fp=open(path, 'w'))
         elif extension in {'hdf5', 'h5', 'hdf'}:
             obj.to_hdf(path, 'key', mode='w')
         elif extension == 'csv':
-            obj.to_csv(path)
+            if parameters is None:
+                obj.to_csv(path)
+            else:
+                obj.to_csv(path, **parameters)
         else:
             print('WARNING: No file format extension specified')

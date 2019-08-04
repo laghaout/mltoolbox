@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb  6 16:14:06 2019
+Created on Thu Aug 24 16:14:06 2017
 
 @author: Amine Laghaout
 """
+
+import itertools
+import matplotlib.pyplot as plt
+import numpy as np
+
+from . import utilities as utils
 
 
 class Visualizer:
@@ -14,14 +20,10 @@ class Visualizer:
             default_args=dict(save_as=None),
             **kwargs):
 
-        from utilities import args_to_attributes
-
-        args_to_attributes(self, default_args, **kwargs)
+        utils.args_to_attributes(self, default_args, **kwargs)
 
 
 class Plot2D(Visualizer):
-
-    from numpy import logspace
 
     def __init__(
             self,
@@ -34,10 +36,7 @@ class Plot2D(Visualizer):
             ),
             **kwargs):
 
-        import matplotlib.pyplot as plt
-        from utilities import parse_args
-
-        kwargs = parse_args(default_args, kwargs)
+        kwargs = utils.parse_args(default_args, kwargs)
 
         super().__init__(**kwargs)
 
@@ -50,7 +49,7 @@ class Plot2D(Visualizer):
         plt.figure()
 
         # Font
-        #plt.rc('font', family = fontFamily)
+        # plt.rc('font', family = fontFamily)
 
         # Plot several curves or...
         if isinstance(y, tuple):
@@ -138,17 +137,12 @@ class Plot2D(Visualizer):
         plt.clf()
 
 
-def plotTimeSeries(
+def plot_time_series(
         x, y_dict, fontsize=16, markersize=3, xlabel='', ylabel='',
         loc='upper left', bbox_to_anchor=(1, 1), title=None, linewidth=3,
         xtick_frequency=10, rotation=45, save_as=None, adjust_xticks=True,
         log=(False, False), legend=True):
-    """
-    Plot the data stored in the dictionary ``y_dict`` versus ``x``.
-    """
-
-    import matplotlib.pyplot as plt
-    from numpy import arange
+    """ Plot the data stored in the dictionary ``y_dict`` versus ``x``. """
 
     plt.figure()
 
@@ -168,11 +162,11 @@ def plotTimeSeries(
             plt.yscale('log')  # , nonposy = 'clip'
 
 #        if len(x) > xtick_frequency and adjust_xticks:
-#            ticks_indices = arange(0, len(x), int(len(x)/xtick_frequency))
+#            ticks_indices = np.arange(0, len(x), int(len(x)/xtick_frequency))
 #            plt.xticks(ticks_indices)
 #            try:
 #                ax.set_xticklabels(x[ticks_indices])
-#            except:
+#            except Exception:
 #                pass
 
         if legend:
@@ -200,10 +194,6 @@ def plot_confusion_matrix(cm, classes,
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
     """
-
-    import itertools
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     plt.figure()
 

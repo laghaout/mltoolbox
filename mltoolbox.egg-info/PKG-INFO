@@ -1,0 +1,10 @@
+Metadata-Version: 1.2
+Name: mltoolbox
+Version: dev
+Summary: Tool for training models.
+Home-page: UNKNOWN
+Author: Amine Laghaout
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6

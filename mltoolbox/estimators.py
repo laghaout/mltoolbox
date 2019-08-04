@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep 17 16:42:03 2018
+Created on Thu Aug 24 16:42:03 2017
 
 @author: Amine Laghaout
 """
 
+from inspect import getargvalues, currentframe
+import tensorflow.keras.optimizers as ks_optimizers
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout
+from tensorflow.keras.layers.embeddings import Embedding
+from numpy import argmin
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import euclidean_distances
+from sklearn.utils.multiclass import unique_labels
+from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+
+from . import utilities as util
 
 
 class Estimator:
@@ -16,9 +27,7 @@ class Estimator:
             default_args=None,
             **kwargs):
 
-        from utilities import args_to_attributes
-
-        args_to_attributes(self, default_args, **kwargs)
+        util.args_to_attributes(self, default_args, **kwargs)
 
         self.verify()
 
@@ -40,17 +49,11 @@ class MLP(Estimator):
             ),
             **kwargs):
 
-        from utilities import parse_args
-
-        kwargs = parse_args(default_args, kwargs)
+        kwargs = util.parse_args(default_args, kwargs)
 
         super().__init__(**kwargs)
 
     def build(self, architecture):
-
-        from keras.optimizers import SGD
-        from keras.models import Sequential
-        from keras.layers import Dense, Dropout
 
         self.architecture = architecture
 
@@ -84,12 +87,12 @@ class MLP(Estimator):
 
         # TODO: Generalize this to any kind of optimizer
         try:
-            optimizer = SGD(**self.optimizer)
-        except BaseException:
-            from keras.optimizers import Adam
+            optimizer = ks_optimizers.SGD(**self.optimizer)
+        except Exception:
+
             try:
                 optimizer = eval(self.optimizer)
-            except BaseException:
+            except Exception:
                 optimizer = self.optimizer
 
         self.model.compile(loss=self.loss_function,
@@ -108,24 +111,18 @@ class RNN(Estimator):
             ),
             **kwargs):
 
-        from utilities import parse_args
-
-        kwargs = parse_args(default_args, kwargs)
+        kwargs = util.parse_args(default_args, kwargs)
 
         super().__init__(**kwargs)
 
     def build(self):
 
         # LSTM with dropout for sequence classification in the IMDB dataset
-        from keras.models import Sequential
-        from keras.layers import Dense, LSTM
 
         self.model = Sequential()
 
         # With embedding
         try:
-
-            from keras.layers.embeddings import Embedding
 
             # Input (embedding) layer
             self.model.add(Embedding(self.input_dim,
@@ -141,7 +138,7 @@ class RNN(Estimator):
 
         # Without embedding
         # https://machinelearningmastery.com/reshape-input-data-long-short-term-memory-networks-keras/
-        except BaseException:
+        except Exception:
 
             # Recurrent layer
             self.model.add(
@@ -168,8 +165,6 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
 
     def __init__(self, arg_1=1000, arg_2=5):
 
-        from inspect import getargvalues, currentframe
-
         args, _, _, values = getargvalues(currentframe())
         values.pop('self')
 
@@ -177,9 +172,6 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
             setattr(self, arg, val)
 
     def fit(self, X, y=None):
-
-        from sklearn.utils.multiclass import unique_labels
-        from sklearn.utils.validation import check_X_y
 
         # Check that X and y have correct shape
         X, y = check_X_y(X, y)
@@ -192,10 +184,6 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
         return self
 
     def predict(self, X):
-
-        from numpy import argmin
-        from sklearn.metrics import euclidean_distances
-        from sklearn.utils.validation import check_array, check_is_fitted
 
         # Check is fit had been called
         check_is_fitted(self, ['X_', 'y_'])
