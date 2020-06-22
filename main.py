@@ -22,7 +22,7 @@ import problem as pro
 
 
 def main(
-        problem='domain',
+        problem='heart',
         explore=True, train=False, test=False, serve=False):
 
     print(f'======================================== {problem}')
@@ -41,10 +41,6 @@ def main(
     # Create the object
     if problem == 'heart':
         problem = pro.Heart(file_path=['data', 'heart.csv'])
-    elif problem == 'DGA':
-        problem = pro.DGA(batch_size=15)
-    elif problem == 'domain':
-        problem = pro.Domain(batch_size=1000)
     elif problem == 'rotation_matrix':
         problem = pro.RotationMatrix(epochs=10)
     elif problem in ['FrozenLake-v0', 'FrozenLake8x8-v0']:

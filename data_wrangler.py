@@ -154,47 +154,6 @@ class FromFile(DataWrangler):
             **kwargs)
 
 
-class Domain(FromFile):
-
-    @staticmethod
-    def wrangle_map(features, labels, substring='.*net.*'):
-        """  """
-
-        # Compute the length of string ``x``.
-        features['length'] = tf.strings.length(features['domain'])
-
-        # Check the existence of ``substring``.
-        features['substring'] = tf.strings.regex_full_match(
-            features['domain'], substring)
-
-        return features, labels
-
-    def wrangle(self):
-
-        self.dataset = self.dataset.map(
-            lambda features, labels: self.wrangle_map(features, labels))
-
-
-class DGA(FromFile):
-
-    @staticmethod
-    def wrangle_map(features, labels, substring='.*net.*'):
-        """  """
-
-        # Compute the length of string ``x``.
-        features['length'] = tf.strings.length(features['domain'])
-
-        # Check the existence of ``substring``.
-        features['substring'] = tf.strings.regex_full_match(
-            features['domain'], substring)
-
-        return features, labels
-
-    def wrangle(self):
-
-        self.dataset = self.dataset.map(
-            lambda features, labels: self.wrangle_map(features, labels))
-
 
 class RotationMatrix(DataWrangler):
 
