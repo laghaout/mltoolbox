@@ -1,87 +1,136 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon May 11 16:13:20 2020
+Created on Thu Aug 24 11:48:58 2017
 
 @author: Amine Laghaout
 
-Requirements
-------------
-- Duck typing
-- Extraction of all the parameters to the interface, i.e. no hard-coding
-- All data should be handled as a ``tf.data`` whenever possible
+TODO code:
 
-To-do
------
-- Defaults handling
-- Config file
+- Create subfunctions for the numerical and categorical transformers.
++ Place everything under ``hyperparams`` and ``data_params``.
+- Hyperparameter optimization
+- Thorough comments
+- Use JSON files for inputs (as a last step).
+- Capture the stdout into a file under the learner_dir which is timestamped and
+  concatenated.
+
+TODO documentation:
+
+- Create a table with technology and level of detail (taxonomy) as dimensions.
+- Detailed UML and diagram
+- Explain how the metrics are synonymous with results and they may also include
+  results (e.g., predictions, timing metrics)
+- Explain how the generic is separate from the detailed. I'll maintain the
+  generic
+- File structure
+- TensorBoard
+- Demos
+- Go over the metrics
+- Warning about Scikit-learn: Not scalable
+- Provide some feedback.
+
+TODO requirements specification:
+
+- Data with td.data.Dataset
+- tf.keras
+- Exploration: Pearson correlation heatmap
+- Visualization with Seaborn: https://www.tensorflow.org/tutorials/keras/regression
 """
 
 import sys
-import problem as pro
+import learners.learner as lea
+import learners.utilities as util
 
 
-def main(
-        problem='heart',
-        explore=True, train=False, test=False, serve=False):
+def main(learner='learner',
+         explore=True, select=True, train=True, test=True, serve=True):
+    """
+    This function is used to invoke a pre-defined learner object from the
+    command line.
 
-    print(f'======================================== {problem}')
+    Parameters
+    ----------
+    learner: Learner, str
+        Learner to be instantiated.
+    explore: bool
+        Explore the data?
+    select: bool
+        Select the model?
+    train: bool
+        Train the model?
+    test: bool
+        Test the model?
+    serve: bool
+        Serve the model?
 
-    if len(sys.argv) >= 2:
-        problem = sys.argv[1]
-    elif len(sys.argv) >= 3:
-        explore = sys.argv[2]
-    elif len(sys.argv) >= 4:
-        train = sys.argv[3]
-    elif len(sys.argv) >= 5:
-        test = sys.argv[4]
-    elif len(sys.argv) >= 6:
-        serve = sys.argv[5]
+    Return
+    ------
+    learner: learner.Learner
+        Learner object.
+    """
 
-    # Create the object
-    if problem == 'heart':
-        problem = pro.Heart(file_path=['data', 'heart.csv'])
-    elif problem == 'rotation_matrix':
-        problem = pro.RotationMatrix(epochs=10)
-    elif problem in ['FrozenLake-v0', 'FrozenLake8x8-v0']:
-        problem = pro.QTableDiscrete(
-            problem,
-            q_table_displays=15)
-    elif problem in ['MountainCar-v0']:
-        problem = pro.MountainCar(problem)
+    # Process the command-line arguments.
+    [learner, explore, select, train, test, serve] = util.set_argv(
+        [learner, explore, select, train, test, serve], sys.argv)
 
-        explore = True
-        train = True
-        test = False
-        serve = False
+    # Instantiate one of the predefined learners whenever a string is provided.
+    if isinstance(learner, str):
+        learner = instantiate(learner)
+
+    learner.run(explore, select, train, test, serve)
+
+    return learner
+
+
+def instantiate(learner):
+    """
+    Whenever a learner is referred to by its (string) name, it means that the
+    it is predifined.
+
+    TODO: Would it be more elegant to replace this by a factory method?
+
+    Parameters
+    ----------
+    learner: str
+        Name of the learner to instantiate.
+
+    Return
+    ------
+    learner: learner.Learner
+        Instantiated learner.
+    """
+
+    assert isinstance(learner, str)
+
+    # Predict the incidence of heart diseases.
+    if learner == 'heart':
+        learner = lea.Heart(learner_dir=learner)
+
+    # Predict the price of housing in Boston.
+    elif learner == 'boston':
+        learner = lea.Boston(learner_dir=learner)
+
+    # Infer the rotation matrix that maps a vector to another.
+    elif learner == 'rotation_matrix':
+        learner = lea.RotationMatrix(learner)
+
+    # Learn the best path over a frozen lake.
+    elif learner in ['FrozenLake-v0', 'FrozenLake8x8-v0']:
+        learner = lea.FrozenLake(learner)
+
+    # Learn the best propultion strategy to climb a mountain.
+    elif learner in ['MountainCar-v0']:
+        learner = lea.MountainCar(learner)
 
     else:
-        print(f'WARNING: There is no problem named {problem}.')
-        problem = pro.Problem()
+        print(f'WARNING: There is no learner named ``{learner}\'\'.',
+              'Running the default template instead.')
+        learner = lea.LearnerChild(learner, some_argument='my_argument')
 
-    # Explore
-    if explore:
-        problem.explore(explore)
-
-    # Train
-    if train:
-        problem.train()
-        problem.train_report()
-
-    # Test
-    if test:
-        _ = problem.test()
-        problem.test_report()
-
-    # Serve
-    if serve:
-        _ = problem.serve()
-        problem.serve_report()
-
-    return problem
+    return learner
 
 
 if __name__ == '__main__':
-    problem = main()
-
-#problem.data.view(num_batches=3, batch_num=None)
+    learner = main()
+    metrics = learner.metrics
